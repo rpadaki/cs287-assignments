@@ -7,6 +7,9 @@ from namedtensor.text import NamedField
 
 import torch.optim as optim
 
+import torch.nn as nn
+import torch.nn.functional as F
+
 # Fields for processing  
 TEXT = NamedField(names=('seqlen',))
 LABEL = NamedField(sequential=False, names=(), unk_token=None, dtype=torch.float)
