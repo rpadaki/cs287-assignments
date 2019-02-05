@@ -79,7 +79,7 @@ class NamedCNN(BaseCNN):
         out = out.op(drop, self.fc, classes="h") \
                  .softmax("classes")
 
-        return out, 
+        return out, feature_extracted
 
 # Set up parameters  
 num_classes = 2
