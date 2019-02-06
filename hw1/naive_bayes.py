@@ -22,11 +22,6 @@ LABEL.build_vocab(train)
 train_iter, val_iter, test_iter = torchtext.data.BucketIterator.splits(
   (train, val, test), batch_size=10, device=torch.device('cuda'))
 
-# Build the vocabulary with word embeddings
-url = 'https://s3-us-west-1.amazonaws.com/fasttext-vectors/wiki.simple.vec'
-TEXT.vocab.load_vectors(vectors=Vectors('wiki.simple.vec', url=url))  
-
-
 def generate_naive_bayes_model(training_iter, alpha):
 
   labelCounts = ntorch.ones(len(LABEL.vocab), names=("class")).cuda() * 0
