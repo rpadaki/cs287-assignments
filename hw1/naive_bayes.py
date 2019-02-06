@@ -23,9 +23,8 @@ train_iter, val_iter, test_iter = torchtext.data.BucketIterator.splits(
   (train, val, test), batch_size=10, device=torch.device('cuda'))
 
 def generate_naive_bayes_model(training_iter, alpha):
-
   labelCounts = ntorch.ones(len(LABEL.vocab), names=("class")).cuda() * 0
-  vocabCounts = ntorch.ones(len(TEXT.vocab), len(LABEL.vocab), names=("vocab", "class")).cuda()) * alpha
+  vocabCounts = ntorch.ones(len(TEXT.vocab), len(LABEL.vocab), names=("vocab", "class")).cuda() * alpha
   classes = ntorch.tensor(torch.eye(len(LABEL.vocab)), names=("class", "classIndex")).cuda()
   encoding = ntorch.tensor(torch.eye(len(TEXT.vocab)), names=("vocab", "vocabIndex")).cuda()
   for batch in training_iter:
