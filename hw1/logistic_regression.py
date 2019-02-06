@@ -1,6 +1,7 @@
 import torch
 import torchtext
 from torchtext.vocab import Vectors, GloVe
+from torch.autograd import Variable
 
 from namedtensor import ntorch, NamedTensor
 from namedtensor.text import NamedField
