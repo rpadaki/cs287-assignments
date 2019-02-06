@@ -30,10 +30,7 @@ def generate_naive_bayes_model(training_iter, alpha):
   for batch in training_iter:
     oneHot = encoding.index_select("vocabIndex", batch.text)
     setofwords, _ = oneHot.max("seqlen")
-    print("wow")
-    print(classes.shape)
-    print(batch.label.shape)
-    classRep = classes.index_select("classIndex", batch.label.int())
+    classRep = classes.index_select("classIndex", batch.label.long())
     labelCounts += classRep.sum("batch")
     vocabCounts += setofwords.dot("batch", classRep)
     
