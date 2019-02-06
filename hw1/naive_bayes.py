@@ -49,5 +49,6 @@ def generate_naive_bayes_model(training_iter, alpha):
   return naive_bayes
 
 
+
 print("lmfoa")
 model = generate_naive_bayes_model(train_iter, alpha = 1)
