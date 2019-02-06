@@ -38,7 +38,7 @@ def generate_naive_bayes_model(training_iter, alpha):
   q = vocabCounts.get("class", 0)
   r = ((p*q.sum())/(q*p.sum())).log()
   weight = r
-  b = np.log(labelCounts.get("class", 1)/labelCounts.get("class", 0))
+  b = (labelCounts.get("class", 1)/labelCounts.get("class", 0)).log()
   def naive_bayes(test_batch):
     oneHotTest = encoding.index_select("vocabIndex", test_batch.cuda())
     setofwords, _ = oneHotTest.max("seqlen")
