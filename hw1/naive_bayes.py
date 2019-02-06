@@ -18,8 +18,6 @@ train, val, test = torchtext.datasets.SST.splits(
 TEXT.build_vocab(train)
 LABEL.build_vocab(train)  
 
-print("haa")
-
 # Set up batches for model input  
 train_iter, val_iter, test_iter = torchtext.data.BucketIterator.splits(
   (train, val, test), batch_size=10, device=torch.device('cuda'))
@@ -32,6 +30,9 @@ def generate_naive_bayes_model(training_iter, alpha):
   for batch in training_iter:
     oneHot = encoding.index_select("vocabIndex", batch.text)
     setofwords, _ = oneHot.max("seqlen")
+    print("wow")
+    print(classes.shape)
+    print(batch.label.shape)
     classRep = classes.index_select("classIndex", batch.label)
     labelCounts += classRep.sum("batch")
     vocabCounts += setofwords.dot("batch", classRep)
@@ -48,7 +49,4 @@ def generate_naive_bayes_model(training_iter, alpha):
     return (y - 0.5) * (ntorch.tensor([-1, 1], names=("class")).cuda()) + 0.5  
   return naive_bayes
 
-
-
-print("lmfoa")
 model = generate_naive_bayes_model(train_iter, alpha = 1)
