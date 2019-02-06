@@ -45,5 +45,5 @@ def generate_naive_bayes_model(training_iter, alpha):
     y = ((weight.dot("vocab", setofwords) + b).sigmoid() - 0.5)
     return (y - 0.5) * (ntorch.tensor([-1, 1], names=("class")).cuda()) + 0.5  
   return naive_bayes
-
-  model = generate_naive_bayes_model(train_iter, alpha = 1)
+  
+model = generate_naive_bayes_model(train_iter, alpha = 1)
