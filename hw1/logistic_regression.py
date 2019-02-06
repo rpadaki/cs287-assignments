@@ -96,7 +96,7 @@ def validate(model, val_iter, criterion):
             
             epoch_acc += acc
             
-    return epoch_acc / len(val_iter
+    return epoch_acc / len(val_iter)
 
 
 # MODEL SETUP  

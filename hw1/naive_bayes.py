@@ -42,8 +42,8 @@ def generate_naive_bayes_model(training_iter, alpha):
   def naive_bayes(test_batch):
     oneHotTest = encoding.index_select("vocabIndex", test_batch.cuda())
     setofwords, _ = oneHotTest.max("seqlen")
-    y = ((weight.dot("vocab", setofwords) + b).sigmoid() - 0.5)
+    y = (weight.dot("vocab", setofwords) + b).sigmoid() 
     return (y - 0.5) * (ntorch.tensor([-1., 1.], names=("class")).cuda()) + 0.5  
   return naive_bayes
 
-model = generate_naive_bayes_model(train_iter, 1)
+model = generate_naive_bayes_model(train_iter, alpha = 1)
