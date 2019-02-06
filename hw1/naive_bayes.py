@@ -33,7 +33,7 @@ def generate_naive_bayes_model(training_iter, alpha):
     print("wow")
     print(classes.shape)
     print(batch.label.shape)
-    classRep = classes.index_select("classIndex", batch.label)
+    classRep = classes.index_select("classIndex", batch.label.int())
     labelCounts += classRep.sum("batch")
     vocabCounts += setofwords.dot("batch", classRep)
     
