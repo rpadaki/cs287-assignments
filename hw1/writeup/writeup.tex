@@ -1,0 +1,267 @@
+
+\documentclass[11pt]{article}
+
+\usepackage{common}
+\title{HW1: Classification}
+\author{Roshan Padaki \\ rpadaki@college.harvard.edu \and Michael Zhang \\ michael\_zhang@college.harvard.edu }
+\begin{document}
+
+\maketitle{}
+\section{Introduction}
+
+Sentence classification is a widely studied problem in natural language processing (NLP) (\cite{wang2012baselines}, \cite{berger1996maximum}). Here we focus on text classification, the task of identifying positive or negative sentiment on a given sentence. Many methods exist for building classifiers, and although NLP has enjoyed its fair share of success due to recent advances in deep learning and more generally neural networks \citep{collobert2011natural}, we seek to compare how exactly these models stack up against others.
+
+Towards this end, we benefit from two developments: word embeddings and convolutional neural networks (CNNs) for NLP. As elucidated in \citet{DBLP:journals/corr/Kim14f}, much work in deep learning for NLP relies on the learning word representations through language models. Known commonly as embeddings, these functions can be trained on large corpuses of text to map from sparse one-hot encoding representations spanning an entire vocabulary size to a lower dimensional vector space that effectively encodes semantic features along its dimensions. Towards sentiment analysis, such denser representations are intuitively helpful for classifying different words through their inferred underlying semantics, as similar words are geometrically closer in the encoded vector space.
+
+CNNs, although originally invented for computer vision \citep{Lecun98gradient-basedlearning}, have enjoyed success in NLP as an alternative to traditional methods heavy on linguistic expertise and feature-engineering \citep{collobert2011natural}. Briefly, CNNs can make use of various filters convolved over some initial word representation to learn features locally in a hidden layer. More so, these local features can be passed through as inputs to a neighboring hidden layer, and multiple layers can be chained together to enable more complex feature learning.
+
+For this assignment, we train four main model families: Naive Bayes, Logistic Regression, Continuous Bag-of-Words (CBOW), and CNNs, and compare their accuracies for predicting sentiment on the Stanford SST-2 dataset. Additionally, we make use of static pre-trained word vectors courtesy of fastText trained on Wikipedia. (source). Finally, we explore improvements through tuning parameter and trying out different model architectures. 
+
+\section{Problem Description}
+From the Stanford sentiment data, we aim to build four classes of classifiers that reliably predict sentiment given an input sentence. Each sentence has been tagged either positive or negative, removing all neutral sentiment. Accordingly, each classifier aims to learn a probability distribution 
+$p(\boldy | \boldx)$
+where $y_i \in \boldy$ is a sentiment label such that $y_i \in \{0, 1\}$ for all data indices $i$ (as according to the binary labelled SST-2 dataset) and $\boldx_i \in \boldx$ is a feature vector, derived from a given sentence. Our predictions $y$ for test case $j$ are then of the form
+\[
+y_j = \sigma(\boldW^T \boldx_j + b)
+\]
+where $\sigma$ is our activation function, $\boldW$ is a matrix of learned weights, $\boldx$ is the feature vector for input $j$, and $b$ is a bias vector.
+
+Beyond this general model formulation, we also define the following variables which will be useful to reference in the next section.
+
+\begin{center}
+    \begin{tabular}{@{}lll@{}}
+        % \toprule
+        &\multicolumn{2}{c}{} \\
+        & Variable & Definition\\
+        \midrule
+        & $\sigma$ & Activation function (sigmoid, tanh, ReLU) \\
+        & $\boldb$ & Bias term(s) \\
+        & $\bolde$ & Embedding vector \\
+        & $\boldx$ & Word vector \\
+        & $\boldw, p, c$ & Convolutional terms: filter, dropout prob., feature\\
+        & $\mcP, \mcN$ & Training data: positive sentences, negative sentences \\
+        \bottomrule
+    \end{tabular}
+\end{center}
+
+
+
+% In general, homeworks will be specified using informal
+% language. As part of the assignment, we expect you to write-out a
+% definition of the problem and your model in formal language. For this
+% class, we will use the following notation:
+
+% \begin{itemize}
+% \item $\boldb, \boldm$;  bold letters for vectors.
+% \item $\boldB, \boldM$;  bold capital letters for matrices.
+% \item $\mcB, \mcM$;  script-case for sets.
+% \item $b_i, x_i$; lower case for scalars or indexing into vectors.
+% \end{itemize}
+
+
+% For instance in natural language processing, it is common to use
+% discrete sets like $\mcV$ for the vocabulary of the language, or $\mcT$ for a
+% tag set of the language.  We might also want one-hot vectors
+% representing words. These will be of the type
+% $\boldv \in \{0,1\}^{|\mcV|}$. In a note, it is crucial to define the
+% types of all variables that are introduced. The problem description is the
+% right place to do this.
+
+% % NLP is also
+% % full of sequences. For instance sentences, $w_1, \ldots, w_N$, where
+% % here $N$ is a constant length and $w_i \in \mcV$ for all
+% % $i \in \{1, \ldots N\}$. If we pretend sentences are all the same
+% % length, we can have scoring function over sentences,
+% % $s : \mcV^N \mapsto \reals$.  One might be defined as:
+
+% % \[ s(w_1, \ldots, w_N) = \sum_{i = 1}^N p(w_i | w_{i-2}, w_{i-1}), \]
+
+% % \noindent where $p$ is the bigram probability, which we will cover later in the class.
+
+\section{Model and Algorithms}
+
+\subsection{Naive Bayes}
+Our first classifier trains weights $\boldW$ and bias $\boldb$ as follows, to make a prediction
+\[y = \sigma\left(\boldW^{\trans}\phi_{\textnormal{max}}(\boldx_{1:t})\right)\]
+Given a smoothing parameter $\alpha$, we create a mollified set-of-words feature count $\boldp$ indexed by $\mcV$, so that for $\mcP$ the positive sentences,
+\[\boldp_{f} = \alpha + \left\lvert\{\boldx \in \mcP: f \in \boldx\}\right\rvert.\]
+Similarly, we get a count
+\[\boldq_{f} = \alpha + \left\lvert\{\boldx \in \mcN: f \in \boldx\}\right\rvert.\]
+Using these counts, we set our weight vector to be
+\[\boldw = \log\left(\frac{p/\lVert p\rVert_1}{q/\lVert q \rVert_1}\right).\]
+Meanwhile, we set our bias $\boldb$ as $\log(\lvert \mcP \rvert / \lvert \mcN \rvert)$.
+To interpret the smoothing parameter, we see that as $\alpha\to \infty$, $\boldW \to 0$, whence our probability is exactly $y=\sigma(0)=0.5$.
+
+In this sense, $\alpha$ can be understood as a noise-smoothing parameter. For Naive Bayes, we followed \cite{wang2012baselines}, and set $\alpha=1$.
+
+
+\subsection{Logistic Regression}
+We learn weights $\boldw$ and bias $\boldb$ to optimize prediction
+\[
+y = \sigma\left( \sum_i\boldW^\trans \boldx_i + \boldb\right)
+\]
+where $\boldx_i$ is a $|\mcV|$-dimensional vector representing bag-of-words unigram counts for each training sample, and $\sigma$ is the standard sigmoid activation function
+\[
+\sigma(x) = \frac{1}{1 + \exp(-x)} 
+\]
+We implement the weight and bias matrices as a single fully-connected layer in PyTorch, mapping to a two element output under our activation function.
+
+\subsection{Continuous Bag-of-Words}
+In our continuous bag-of-words (CBOW) model, each word is an $n$-length sentence is first mapped to an embedding vector $\bolde_i$ and all embedding vectors are then averaged to produce a single feature vector $\bolde$ to represent the entire input. Like the regular bag-of-words model, the order of words as they appear in each training sentence is not taken into account, but this mapping uses a continuous distribution to represent context of a sentence. Accordingly, we have 
+\[
+\bolde = \frac{1}{n}\sum_{i=1}^n \bolde_i
+\]
+which is then fed into a softmax-activated fully-connected layer.  
+
+\subsection{Convolutional Neural Nets} 
+Finally, our basic implementation for a CNN follows that of \citet{DBLP:journals/corr/Kim14f}. Let $\boldx_i \in \mathbb{R}^k$ be the $k$-dimensional word vector which corresponds to the $i$-th word of a $n$-word long sentence. Accordingly, such a sentence is represented as
+\[
+\boldx_{1:n} = \boldx_1 \oplus \boldx_2 \oplus  \ldots \oplus \boldx_n
+\]
+where $\oplus$ is the concatenation operator. Given this representation, we can generate new features $c_i$ by applying a filter $\boldw \in \mathbb{R}^{hk}$ to concatenations of $h$ words, or windows. Accordingly,
+\[
+c_i = \sigma(\boldw \cdot \boldx_{i: i + h - 1} + b)
+\]
+where $\sigma$ is a nonlinear function such as Tanh or ReLU, $\boldx_{i: i + h - 1}$ is a window with $h$ words, and $b \in \mathbb{R}$ is the bias term. The filter is applied to each possible window of words in a sentence to produce a feature map
+\[
+\boldc = [c_1, c_2, \ldots, c_{n - h + 1}]
+\]
+Following \citet{collobert2011natural} and \citet{DBLP:journals/corr/Kim14f}, we apply a max-over-time pooling operation over $\boldc$ and take $c = \max(\boldc)$ to be the feature corresponding to the filter.
+
+To obtain multiple features, we repeat the process for multiple filters, ultimately passing them to a fully connected softmax layer with binary outputs for our prediction. In our PyTorch implementation, we fine-tune our word vectors via backpropagation, and employ dropout according to \citet{DBLP:journals/corr/Kim14f}} with $p = 0.5$ for regularization to avoid overfitting.
+
+
+% Here you specify the model itself. This section should formally
+% describe the model used to solve the task proposed in the previous
+% section. This section should try to avoid introducing new vocabulary
+% or notation, when possible use the notation from the previous section.
+% Feel free to use the notation from class, but try to make the note
+% understandable as a standalone piece of text.
+
+% This section is also a great place to include other material that
+% describes the underlying structure and choices of your model, for
+% instance here are some example tables and algorithms from full
+% research papers:
+
+% \begin{itemize}
+% \item diagrams of your model,
+
+%   \begin{center}
+%     \includegraphics[width=0.4\textwidth]{network}
+%   \end{center}
+% \item feature tables,
+
+%   \begin{center}
+%     \begin{tabular}{@{}lll@{}}
+%       \toprule
+%       &\multicolumn{2}{c}{Mention Features  } \\
+%       & Feature & Value Set\\
+%       \midrule
+%       & Mention Head & $\mcV$ \\
+%       & Mention First Word & $\mcV$ \\
+%       & Mention Last Word & $\mcV$ \\
+%       & Word Preceding Mention & $\mcV$ \\
+%       & Word Following Mention & $\mcV$\\
+%       & \# Words in Mention & $\{1, 2, \ldots \}$ \\
+%       & Mention Type & $\mathcal{T}$ \\
+%       \bottomrule
+%     \end{tabular}
+%   \end{center}
+
+% \item pseudo-code,
+
+%   \begin{algorithmic}[1]
+%     \Procedure{Linearize}{$x_1\ldots x_N$, $K$, $g$}
+%     \State{$B_0 \gets \langle (\langle \rangle, \{1, \ldots, N\}, 0, \boldh_0, \mathbf{0})  \rangle$}
+%     \For{$m = 0, \ldots, M-1$ }
+%     \For{$k = 1, \ldots, |B_m|$}
+%     \For{$i \in \mcR$}
+%     \State{$(y, \mcR, s, \boldh) \gets \mathrm{copy}(B_m^{(k)})$}
+%     \For{word $w$ in phrase $x_i$}
+%     \State{$y \gets y $ append $w$ }
+%     \State{$s \gets s + \log q(w, \boldh) $ }
+%     \State{$\boldh \gets \delta(w, \boldh)$}
+%     \EndFor{}
+%     \State{$B_{m+|w_i|} \gets B_{m+|w_i|} + (y, \mcR - i, s,   \boldh)$}
+%     \State{keep top-$K$ of $B_{m+|w_i|}$ by $f(x, y) + g(\mcR)$}
+%     \EndFor{}
+%     \EndFor{}
+%     \EndFor{}
+%     \State{\Return{$B_{M}^{(k)}$}}
+%     \EndProcedure{}
+%   \end{algorithmic}
+
+% \end{itemize}
+
+
+\section{Experiments}
+
+For all models, we trained with $30$ epochs on batches of size $30$ unless otherwise noted. In addition to the Stanford SST-2 dataset supplied by torchtext, we implement all models as "named" versions using NamedTensor. As noted on Kaggle, we compare our submissions both with each other and a single class baseline, which achieves a public dataset testing accuracy of 52.38\%. Our basic results  are listed in Table 1.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llr}
+ \toprule
+ Model &  & Accuracy $(\%)$ \\
+ \midrule
+ \textsc{Single Class} & & 52.38\\
+ \textsc{Naive Bayes} & & 82.15 \\
+ \textsc{Logistic Regression} & & 78.41  \\
+ \textsc{CBOW} & &77.05 \\
+ \textsc{CNN} & & 79.49\\
+ \bottomrule
+\end{tabular}
+\caption{\label{tab:results} Basic model performance}
+\end{table}
+
+Although not actually implemented, we note that the single class baseline model does not perform well, with all other models exhibiting notable performance gains. Notably, although we did not expect Naive Bayes to be the top performer given its strong assumptions on input independence, our results show otherwise. 
+
+Given the successful performance of CNNs in \citet{DBLP:journals/corr/Kim14f}, we were interested in experimenting with the parameters further. Our main objective was to try to reproduce the 87.2 \% accuracy reported on the SST-2 dataset. Accordingly, using default training parameters (filter lengths $2, 3, 4$; number of filters $100$ learning rate $2e^{-4}$; batch size $10$; dropout $0.5$), we experimented with stride length, filter lengths, hidden layer depth, and an alternate pre-trained embedding (GloVe). However, our results (summarized in Table 2) do not show clear improvements.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llr}
+ \toprule
+Model Modification &  & Accuracy $(\%)$ \\
+ \midrule
+ \textsc{Baseline} & & 79.49\\
+ \textsc{Stride Length} & & 80.07 \\
+ \textsc{Filter Lengths} & & 78.41  \\
+ \textsc{Embedding} & &81.49 \\
+ \bottomrule
+\end{tabular}
+\caption{\label{tab:results} Modified CNN model performance. \textbf{Stride Length}: Modification to the stride length from default length $1$, with optimal performance at length $2$. \textbf{Filter Lengths}: Adding a filter with size $2$ to the default filters of size $3, 4, 5$. \textbf{Embedding}: Building the vocab representation with Stanford's GloVe embedding}.
+\end{table}
+
+
+% Finally we end with the experimental section. Each assignment will make clear the main experiments and baselines that you should run. For these experiments you should present a main results table. Here we give a sample Table~\ref{tab:results}. In addition to these results you should describe in words what the table shows and the relative performance of the models.
+
+% Besides the main results we will also ask you to present other results
+% comparing particular aspects of the models. For instance, for word
+% embedding experiments, we may ask you to show a chart of the projected
+% word vectors. This experiment will lead to something like
+% Figure~\ref{fig:clusters}. This should also be described within the
+% body of the text itself.
+
+% \begin{figure}
+%   \centering
+%   \includegraphics[width=6cm]{cluster_viz}
+%   \caption{\label{fig:clusters} Sample qualitative chart.}
+% \end{figure}
+
+
+\section{Conclusion}
+
+We built and trained different models to classify the SST data set, with overall success compared to the baseline. Surprisingly, the most successful model was Naive Bayes, which strongly assumes that features are independent of each other within a class. This may indicate that, in this data set, features more strongly correlated with a class actually tend to occur more independently of each other.
+
+Nevertheless, all of our models performed quite well. Although we were not able to replicate the CNN performance exhibited in \citet{DBLP:journals/corr/Kim14f}, we reached similar conclusions that with little hyperparameter tuning, a simple CNN with one layer of convolution and pre-trained embeddings worked well. In fact, the rather close performance of all model classes dependent on the our embedding, and the performance boost in CNNs seen when switching from the default wiki-based vectors to GloVe, further corroborate the idea that advances in NLP can be associated with unsupervised pretraining of word vectors. 
+
+
+The biggest difficulty we had throughout this process was acquainting ourselves with NamedTensor and sorting out bugs in our code resulting from the new package.  As a whole, we found the use of named dimensions to be very useful, but had to spend a bit more time wrangling and managing our data.
+
+Code can 
+
+\bibliographystyle{apalike}
+\bibliography{writeup}
+
+\end{document}
