@@ -1,6 +1,7 @@
 import torch
 import torchtext
 from torchtext.vocab import Vectors, GloVe
+from torch.autograd import Variable
 
 from namedtensor import ntorch, NamedTensor
 from namedtensor.text import NamedField
@@ -96,7 +97,7 @@ def validate(model, val_iter, criterion):
             
             epoch_acc += acc
             
-    return epoch_acc / len(val_iter
+    return epoch_acc / len(val_iter)
 
 
 # MODEL SETUP  
