@@ -1,6 +1,6 @@
 
 \documentclass[11pt]{article}
-
+\usepackage{hyperref}
 \usepackage{common}
 \title{HW1: Classification}
 \author{Roshan Padaki \\ rpadaki@college.harvard.edu \and Michael Zhang \\ michael\_zhang@college.harvard.edu }
@@ -128,7 +128,7 @@ where $\sigma$ is a nonlinear function such as Tanh or ReLU, $\boldx_{i: i + h -
 \]
 Following \citet{collobert2011natural} and \citet{DBLP:journals/corr/Kim14f}, we apply a max-over-time pooling operation over $\boldc$ and take $c = \max(\boldc)$ to be the feature corresponding to the filter.
 
-To obtain multiple features, we repeat the process for multiple filters, ultimately passing them to a fully connected softmax layer with binary outputs for our prediction. In our PyTorch implementation, we fine-tune our word vectors via backpropagation, and employ dropout according to \citet{DBLP:journals/corr/Kim14f}} with $p = 0.5$ for regularization to avoid overfitting.
+To obtain multiple features, we repeat the process for multiple filters, ultimately passing them to a fully connected softmax layer with binary outputs for our prediction. In our PyTorch implementation, we fine-tune our word vectors via backpropagation, and employ dropout according to \citet{DBLP:journals/corr/Kim14f} with $p = 0.5$ for regularization to avoid overfitting.
 
 
 % Here you specify the model itself. This section should formally
@@ -257,9 +257,9 @@ We built and trained different models to classify the SST data set, with overall
 Nevertheless, all of our models performed quite well. Although we were not able to replicate the CNN performance exhibited in \citet{DBLP:journals/corr/Kim14f}, we reached similar conclusions that with little hyperparameter tuning, a simple CNN with one layer of convolution and pre-trained embeddings worked well. In fact, the rather close performance of all model classes dependent on the our embedding, and the performance boost in CNNs seen when switching from the default wiki-based vectors to GloVe, further corroborate the idea that advances in NLP can be associated with unsupervised pretraining of word vectors. 
 
 
-The biggest difficulty we had throughout this process was acquainting ourselves with NamedTensor and sorting out bugs in our code resulting from the new package.  As a whole, we found the use of named dimensions to be very useful, but had to spend a bit more time wrangling and managing our data.
+The biggest difficulty we had throughout this process was acquainting ourselves with NamedTensor and sorting out bugs in our code resulting from the new package.  As a whole, we found the use of named dimensions to be very useful, but had to spend a bit more time wrangling and managing our data.\\
 
-Code can be found here 
+Our code can be found at \url{https://github.com/rpadaki/cs287assignments/tree/master/hw1}.
 
 \bibliographystyle{apalike}
 \bibliography{writeup}
