@@ -17,7 +17,7 @@ from namedtensor.text import NamedField
 # Model Imports  
 # from ngram import NGram  
 from nnlm import NNLM  
-from lstm import LSTM 
+from lstm import RNN 
 
 def repackage_hidden(h):
     """Detach hidden state tensors from history w/ new batch"""
