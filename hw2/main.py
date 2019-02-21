@@ -35,14 +35,14 @@ def train_model(model, train_iter, criterion, optimizer, lr=0.0001, weight_decay
     model.train()
     optimizer = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
 
-    if model.rnn:
+    if model.recurrent:
         hidden = model.init_hidden(BATCH_SIZE)
 
     for ix in range(len(x_train)):
         optimizer.zero_grad()
         x_batch = x_train[ix]; y_batch = y_train[ix]
 
-        if model.rnn:
+        if model.recurrent:
             hidden = repackage_hidden(hidden)
             output, hidden = model.forward(x_batch, hidden)
             loss = criterion(output.view(-1, VOCAB_SIZE).log(), y_batch)
@@ -64,7 +64,7 @@ def validate_model(model, x, y, n_words):
     """Method to evaluate model"""
     model.eval()
 
-    if model.hidden:
+    if model.recurrent:
         hidden = model.init_hidden(BATCH_SIZE)
 
     with torch.no_grad():
@@ -73,7 +73,7 @@ def validate_model(model, x, y, n_words):
         n_correct = 0
 
         for i in range(len(x)):
-            if model.rnn:
+            if model.recurrent:
                 probs, hidden = model.forward(x[i], hidden)
                 probs = probs.view(-1, VOCAB_SIZE)
                 hidden = repackage_hidden(hidden)

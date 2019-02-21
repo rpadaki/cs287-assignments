@@ -9,15 +9,17 @@ class RNN(nn.Module):
     :n_input: embedding dimensions (e.g. 300)  
     :dropout: 0.65 from (Zaremba, et al., 2015)
     :tie weights: extension in (Press & Wolf., 2016)
+    :vocab_size: len(TEXT.vocab)
     """
     def __init__(self, rnn_type, n_input, n_hidden, n_layers, vocab_size, dropout=0.65, tie_weights=False, bidirectional=True):  
        
         super(RNNModel, self).__init__()
         self.drop = torch.nn.Dropout(dropout)
-        self.encoder = torch.nn.Embedding(vocab_size, n_input)
+        self.encoder = torch.nn.Embedding.from_pretrained(WORD_VECS.clone(), freeze=False)
         self.rnn = getattr(torch.nn, rnn_type)(n_input, n_hidden, num_layers=n_layers, 
             dropout=dropout, bidirectional=bidirectional)
-        self.decoder = nn.Linear(n_hidden, vocab_size)  # Need softmax? 
+        self.decoder = torch.nn.Sequential(torch.nn.Linear(n_hidden, vocab_size), 
+                                           torch.nn.Softmax(dim=-1))
         
         if tie_weights:  # Optionally tie weights? 
             if n_hidden != n_input:
@@ -29,6 +31,8 @@ class RNN(nn.Module):
         self.n_hidden = n_hidden
         self.n_layers = n_layers
         self.n_input = n_input
+
+        self.recurrent = True
         
     def init_weights(self):
         init_range = 0.05
@@ -44,13 +48,13 @@ class RNN(nn.Module):
         decoded = self.decoder(output.view(output.size(0)*output.size(1), output.size(2)))
         return decoded.view(output.size(0), output.size(1), decoded.size(1)), hidden
         
-    def init_hidden(self, bsz):
+    def init_hidden(self, batch_size):
         weight = next(self.parameters())
         if self.rnn_type == 'LSTM':
-            return (weight.new_zeros(self.n_layers, bsz, self.n_hidden),
-                    weight.new_zeros(self.n_layers, bsz, self.n_hidden))
+            return (weight.new_zeros(self.n_layers, batch_size, self.n_hidden),
+                    weight.new_zeros(self.n_layers, batch_size, self.n_hidden))
         else:
-            return weight.new_zeros(self.n_layers, bsz, self.n_hidden)
+            return weight.new_zeros(self.n_layers, batch_size, self.n_hidden)
 
     def format_batch(self, batch):
         list_samples = []

@@ -14,6 +14,8 @@ class NNLM(torch.nn.Module):
         self.dropout = torch.nn.Dropout(p=dropout_rate)
         self.embedding = torch.nn.Embedding.from_pretrained(WORD_VECS.clone(), freeze=False)
         self.conv = torch.nn.Conv1d(300, num_filters, n-1, stride=1)
+
+        self.recurrent = False
         
         # Setup layers  
         linear_blocks = [  # input
