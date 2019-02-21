@@ -12,7 +12,7 @@ class NNLM(torch.nn.Module):
         self.n = n
         self.vocab_size = len(TEXT.vocab)
         self.dropout = torch.nn.Dropout(p=dropout_rate)
-        self.embedding = torch.nn.Embedding.from_pretrained(WORD_VECS.clone(), freeze=False)
+        self.embeddings = torch.nn.Embedding.from_pretrained(WORD_VECS.clone(), freeze=False)
         self.conv = torch.nn.Conv1d(300, num_filters, n-1, stride=1)
 
         self.recurrent = False
