@@ -17,7 +17,14 @@ from namedtensor.text import NamedField
 # Model Imports  
 # from ngram import NGram  
 from nnlm import NNLM  
-from lstm import LSTM  
+from lstm import LSTM 
+
+def repackage_hidden(h):
+    """Detach hidden state tensors from history w/ new batch"""
+    if isinstance(h, torch.Tensor):
+        return h.detach()
+    else:
+        return tuple(repackage_hidden(v) for v in h) 
 
 def train(model, train_iter, criterion, optimizer, lr=0.0001, weight_decay=0): 
     """Method to train model. Define optimizer = ADAM, Adagrad, etc (e.g. optim.Adam); criterion = torch.nn.NLLLoss()""" 
