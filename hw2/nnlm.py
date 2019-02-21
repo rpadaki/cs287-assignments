@@ -18,10 +18,10 @@ class NNLM(torch.nn.Module):
         # Setup layers  
         linear_blocks = [  # input
             torch.nn.Linear(num_filters, hidden_size),
-            torch.nn.Tanh()]
+            torch.nn.Tanh(),]
         for l in range(num_layers - 2):  # hidden
             linear_blocks.append(torch.nn.Linear(num_filters, hidden_size))
-            linear_blocks.append(torch.nn.Tanh)
+            linear_blocks.append(torch.nn.Tanh())
         linear_blocks.extend([  # output
             torch.nn.Linear(hidden_size, self.vocab_size), 
             torch.nn.Softmax(dim=-1)])
@@ -41,15 +41,14 @@ class NNLM(torch.nn.Module):
         list_results = []
         
         num_words = 0
-        batch_size = len(batch)
         
-        for i in range(batch_size):
+        for i in range(len(batch)):
             context = batch.text[{'batch': i}].values.data
             targets = batch.target.get('batch', i).values.data  
             
-            num_words += len(sent)
-            padded_context = torch.nn.functional.pad(context, (self.n - 2, batch_size - len(context)), value=0)
-            target_words = torch.nn.functional.pad(targets, (0, batch_size - len(targets)), values=0)
+            num_words += len(context)
+            padded_context = torch.nn.functional.pad(context, (self.n - 2, BATCH_SIZE - len(context)), value=0)
+            target_words = torch.nn.functional.pad(targets, (0, BATCH_SIZE - len(targets)), value=0)
             
             list_samples.append(padded_context)
             list_results.append(target_words)
@@ -68,10 +67,12 @@ class NNLM(torch.nn.Module):
         
         for batch in batch_iter:
             x, y, num_words = self.format_batch(batch)
-            x_batches.append(x)
-            y_batches.append(y)
+            list_batch_x.append(x)
+            list_batch_y.append(y)
             total_words += num_words
 
         return list_batch_x, list_batch_y, total_words
+            
+        
             
         
