@@ -36,19 +36,20 @@ class NNLM(torch.nn.Module):
         out = self.out(convs).flatten(0, 1)
         return out
       
-    def formatBatch(self, batch):
+    def format_batch(self, batch):
         list_samples = []
         list_results = []
         
         num_words = 0
+        batch_size = len(batch)
         
-        for i in range(len(batch)):
+        for i in range(batch_size):
             context = batch.text[{'batch': i}].values.data
             targets = batch.target.get('batch', i).values.data  
             
             num_words += len(sent)
-            padded_context = torch.nn.functional.pad(context, (self.n - 2, BATCH_SIZE - len(context)), value=0)
-            target_words = torch.nn.functional.pad(targest, (0, BATCH_SIZE - len(targets)), values=0)
+            padded_context = torch.nn.functional.pad(context, (self.n - 2, batch_size - len(context)), value=0)
+            target_words = torch.nn.functional.pad(targets, (0, batch_size - len(targets)), values=0)
             
             list_samples.append(padded_context)
             list_results.append(target_words)
@@ -66,7 +67,7 @@ class NNLM(torch.nn.Module):
         total_words = 0
         
         for batch in batch_iter:
-            x, y, num_words = self.formatBath(batch)
+            x, y, num_words = self.format_batch(batch)
             x_batches.append(x)
             y_batches.append(y)
             total_words += num_words
