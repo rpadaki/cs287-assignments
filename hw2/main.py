@@ -99,6 +99,33 @@ def train_val_model(model, n_epochs, criterion, optimizer):
 BATCH_SIZE = 10  
 VOCAB_SIZE = len(TEXT.vocab)
 
+# Example Training  
+# Presets taken from Zaremba, Sutskever, Vinyals. 2015
+vocab_size = len(TEXT.vocab)
+model_type = 'LSTM'
+input_size = 300  # embedding dimensions
+num_hidden_per_layer = 200  
+num_layers = 2
+dropout = 0.65
+tied_args = False
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+model = RNNModel(model_type, vocab_size, input_size, num_hidden_per_layer, num_layers, dropout, tied_args).to(device)
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.Adam(model.parameters(), lr = 1)
+
+# Think I'm calculating perplexity incorrectly  
+N_EPOCHS = 30
+
+vocab_size = len(TEXT.vocab)
+
+for epoch in range(N_EPOCHS):
+    train_loss = train(model, train_iter, criterion, optimizer, vocab_size)
+    val_acc = validate(model, val_iter, criterion)
+    print(f'| Epoch: {epoch+1:02} | Train Loss: {train_loss:.3f} | \
+          Val. Acc: {val_acc*100:.2f}% |')
+
 
 
 
