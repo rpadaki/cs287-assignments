@@ -51,6 +51,7 @@ class NamedBpttIterator(BPTTIterator):
 
 # Our input $x$
 TEXT = NamedField(names=("seqlen",))
+# TEXT = torchtext.data.Field()  # PyTorch alt  
 
 GLOVE = False  # Use GloVe embeddings
 DEBUG_MODE = False  # When debugging use smaller vocab size 
@@ -69,10 +70,10 @@ else:
     url = 'https://s3-us-west-1.amazonaws.com/fasttext-vectors/wiki.simple.vec'
     TEXT.vocab.load_vectors(vectors=Vectors('wiki.simple.vec', url=url))
 
-if DEBUG_MODE:
-    TEXT.build_vocab(train, max_size=1000)
-else:
-    TEXT.build_vocab(train)
+# if DEBUG_MODE:
+#     TEXT.build_vocab(train, max_size=1000)
+# else:
+#     TEXT.build_vocab(train)
 
 # Split up data  
 train_iter, val_iter, test_iter = NamedBpttIterator.splits(
