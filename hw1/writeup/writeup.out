@@ -1,0 +1,9 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{Problem Description}{}% 2
+\BOOKMARK [1][-]{section.3}{Model and Algorithms}{}% 3
+\BOOKMARK [2][-]{subsection.3.1}{Naive Bayes}{section.3}% 4
+\BOOKMARK [2][-]{subsection.3.2}{Logistic Regression}{section.3}% 5
+\BOOKMARK [2][-]{subsection.3.3}{Continuous Bag-of-Words}{section.3}% 6
+\BOOKMARK [2][-]{subsection.3.4}{Convolutional Neural Nets}{section.3}% 7
+\BOOKMARK [1][-]{section.4}{Experiments}{}% 8
+\BOOKMARK [1][-]{section.5}{Conclusion}{}% 9
