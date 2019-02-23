@@ -34,6 +34,32 @@ def train_model(model, train_iter, optimizer, criterion, lr=1e-3):
         optimizer.step()
         epoch_loss.append(loss.item())
     return epoch_loss
+
+
+def train_model_lstm(model, hidden, train_iter, optimizer, criterion, lr=1e-3, clip=2):  
+    """
+    Train the actual model for LSTMs (requires hidden initiation)
+    :optimizer: try out torch.optim.Adam  
+    :criterion: nn.CrossEntropyLoss
+    """
+    parameters = filter(lambda p: p.requires_grad, model.parameters())
+    
+    optimizer = optimizer(params=parameters, lr=lr)
+    
+    model.train()
+    epoch_loss = []
+    for batch in train_iter:
+        x, y = batch_to_input(batch)
+        x, y = x.cuda(), y.cuda()
+        optimizer.zero_grad()
+        y_pred, hidden = model.forward(x, hidden, train=True)
+        loss = criterion(y_pred, y)
+        loss.backward()
+        torch.nn.utils.clip_grad_norm(model.lstm.parameters(), clip)
+        optimizer.step()
+        epoch_loss.append(loss.item())
+    return epoch_loss
+
             
 def validate_model(model, val_iter, criterion):
     """
@@ -48,10 +74,12 @@ def validate_model(model, val_iter, criterion):
         val_loss.append(criterion(probs, y).item())
     return val_loss
 
-def train_val_model(model, n_epochs, optimizer, lr=1e-3):
+def train_val_model(model, n_epochs, optimizer, lr=1e-3, lstm=False, batch_size=10):
     """Wrapper to call training and evaluation"""
     criterion = nn.NLLLoss()
     for epoch in tqdm_notebook(range(n_epochs)):  # loady bois  
+        if lstm:
+            hidden = model.init_hidden(batch_size)
         epoch_loss = train_model(model, train_iter, optimizer, criterion, lr)
         val_loss = validate_model(model, val_iter, criterion)
         # Perplexity
