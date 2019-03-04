@@ -4,6 +4,7 @@ from namedtensor import ntorch, NamedTensor
 from namedtensor.text import NamedField
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 
 class EncoderLSTM(nn.Module):
