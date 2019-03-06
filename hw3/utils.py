@@ -112,7 +112,7 @@ class TrainTestBase(object):
 
 class ModelEval(TrainTestBase):
     def __init__(self, models, TEXT_SRC, TEXT_TRG, record_attention=False, 
-                 visualize_freq=None, **kwargs):
+                 visualize_freq=None, reverse_encoder_input=False, **kwargs):
         """
         Validation class. Requires matplotlib for the visualization
         """
@@ -166,7 +166,7 @@ class ModelEval(TrainTestBase):
         for i, batch in enumerate(test_iter):
             nll_count += batch.trg.data.numel()
             loss = self.run_model(batch, mode='sum')
-            nll_sum += loss.data[0]
+            nll_sum += loss.data.init_model_inputs
             
             if self.visualize_freq and i % self.visualize_freq == 0:
                 sample = self.attn_log[-1]
@@ -211,7 +211,10 @@ class ModelTrain(TrainTestBase):
         self.val_performance = []
         
     def get_loss_data(self, loss):
-        return loss.data.cpu().numpy()[0]
+        try:
+            return loss.data.cpu().numpy()[0]
+        except:
+            return loss.data.cpu().numpy()
     
     def record_updates(self, loss, norm):
         self.training_losses.append(loss)
@@ -284,7 +287,7 @@ class ModelTrain(TrainTestBase):
                 print('Validation: %f' % self.val_performance[-1])
 
             if save_model:
-                path_name = 'saved_models/' + save_model + 'epoch_%d.ckpt.tar' % epoch
+                path_name = save_model + 'epoch_%d.ckpt.tar' % epoch
                 save_checkpoint(self.models[0], self.models[1], path_name)
                 
         
