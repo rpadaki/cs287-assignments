@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 class EmbeddingLM(nn.Module):
-    def __init__(self, text, dropout=0.0, max_embedding_norm=None, embedding_size=1000):
+    def __init__(self, text, dropout=0.0, embedding_size=1000, max_embedding_norm=None):
         super(EmbeddingLM, self).__init__()
         self.dropout_prob = dropout
         self.dropout = nn.Dropout(self.dropout_prob)
@@ -71,12 +71,6 @@ class DecoderLSTM(EncoderLSTM):
         output = self.output(output)
         output = F.log_softmax(output, dim=2)
         return output, hidden
-
-
-class DecoderAttn(EncoderLSTM):
-    """Decoder with attention"""
-    def __init__(self, TEXT, enc_bidirectional=False, tie_weights=False,
-                 enc_linear=0, **kwargs):
        
 
 class DecoderAttn(EncoderLSTM):
