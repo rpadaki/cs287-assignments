@@ -195,9 +195,8 @@ class ModelEval(TrainTestBase):
         print('validation time: %f sec' % (time.time() - start_time))
         return np.exp(nll_sum / nll_cnt)
 
-    def beam_search_prediction(self, sentence, ref_beam, ref_vocab, beam_size=100,
-                               pred_len=3, pred_num=None, ignore_eos=False, 
-                               translate=False):
+    def beam_search_predict(self, sentence, ref_beam, ref_vocab, beam_size=100,
+                            pred_len=3, pred_num=None, ignore_eos=False, translate=False):
         """Beam search implementation for selecting viable translations"""
         if pred_num is None:
             pred_num = beam_size
@@ -344,10 +343,10 @@ class ModelEval(TrainTestBase):
         preds = []
         
         for i, sentence in enumerate(test_set):
-            translations = self.run_model_predict(sentence, ref_beam=ref_beam,
-                                                  ref_voc=ref_voc, pred_len=pred_len,
-                                                  beam_size=beam_size, ignore_eos=ignore_eos,
-                                                  translate=translate)
+            translations = self.beam_search_predict(sentence, ref_beam=ref_beam,
+                                                    ref_voc=ref_voc, pred_len=pred_len,
+                                                    beam_size=beam_size, ignore_eos=ignore_eos,
+                                                    translate=translate)
             preds.append(translations)
         if translate:
             return preds
@@ -490,7 +489,7 @@ class ModelTrain(TrainTestBase):
                 path_name = save_model + 'epoch_%d.ckpt.tar' % epoch
                 print('Saving model')
                 save_checkpoint(self.models[0], self.models[1], path_name)
-        
+
                 
         
             
