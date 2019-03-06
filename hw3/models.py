@@ -6,21 +6,33 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 
+class EmbeddingLM(nn.Module):
+    def __init__(self, text, dropout=0.0, max_embedding_norm=None, embedding_size=1000):
+        super(EmbeddingLM, self).__init__()
+        self.dropout_prob = dropout
+        self.dropout = nn.Dropout(self.dropout_prob)
 
-class EncoderLSTM(nn.Module):
-    def __init__(self, input_size, text, hidden_size=500, num_layers=2, 
+        self.vocab_size = len(text.vocab)
+        self.embedding_dim = embedding_size
+        self.embeddings = nn.Embedding(self.vocab_size, self.embedding_dim, 
+                                       max_norm=max_embedding_norm)
+
+
+
+class EncoderLSTM(EmbeddingLM):
+    def __init__(self, text, hidden_size=500, num_layers=2, 
                  embedding_size=1000, dropout=0.0, bidirectional=False, **kwargs):
         super(EncoderLSTM, self).__init__(text, **kwargs)
         self.dropout = nn.Dropout(dropout)
         self.vocab_size = len(text.vocab)
         self.embedding_dim = embedding_size
-        self.embeddings = nn.Embeeding(self.vocab_size, self.embedding_dim)
+        self.embeddings = nn.Embedding(self.vocab_size, self.embedding_dim)
         
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.bidirectional = bidirectional
         self.lstm = nn.LSTM(input_size=self.embedding_dim, hidden_size=self.hidden_size,
-                            num_layers=self.num_layers, dropout=self.dropout, batch_first=True, 
+                            num_layers=self.num_layers, dropout=self.dropout_prob, batch_first=True, 
                             bidirectional=self.bidirectional)
         
     def forward(self, input_, hidden):
@@ -59,4 +71,65 @@ class DecoderLSTM(EncoderLSTM):
         output = self.output(output)
         output = F.log_softmax(output, dim=2)
         return output, hidden
+
+
+class DecoderAttn(EncoderLSTM):
+    """Decoder with attention"""
+    def __init__(self, TEXT, enc_bidirectional=False, tie_weights=False,
+                 enc_linear=0, **kwargs):
        
+
+class DecoderAttn(EncoderLSTM):
+    """Decoder with attention"""
+    def __init__(self, TEXT, bidirectional_encoder=False, tie_weights=False, 
+                 linear_encoder=0, **kwargs):
+        super(DecoderAttn, self).__init__(TEXT, **kwargs)
+        self.encoder_directions = 2 if bidirectional_encoder else 1
+        
+        self.output_linear_decoder = nn.Linear(self.hidden_size, self.vocab_size)
+        self.output_linear_context = nn.Linear(self.encoder_directions * self.hidden_size, 
+                                               self.vocab_size)
+        self.linear_encoder = linear_encoder
+        if self.linear_encode > 0:
+            self.attn_linear = nn.Linear(self.encoder_directions * self.linear_encoder, 
+                                         self.hidden_size)
+        if tie_weights:
+            if self.hidden_size != self.embedding_dim:
+                raise ValueError('Tied weights require hidden size to equal embedding dimension!')
+            else:
+                self.out_linear_decoder.weight = self.embeddings.weight
+                
+        def forward(self, input_, hidden, encoder_output, masks=None):
+            e = self.embeddings(input_)
+            e = self.dropout(e)
+            decoder_output, hidden = self.lstm(e, hidden)
+            
+            # Attention
+            if self.linear_encoder > 0:
+                output_linear_encoder = self.attn_linear(encoder_output)
+            else:
+                output_linear_encoder = encoder_output
+            
+            # output_encoder_prm is [batch_size, hidden_size, sentence_len (src)] <- TODO: Named
+            output_encoder_perm = output_linear_encoder.permute(0, 2, 1)
+            products = torch.bmm(decoder_output, output_encoder_perm)
+            
+            # masks is [batch_size, sentence_len] 
+            if masks is not None:
+                masks = Variable(torch.Tensor([np.inf])) * masks
+                masks[masks != masks] = 0
+                products = products - torch.unsqueeze(masks, 1)
+            
+            product_softmax = F.softmax(products, dim=2)  # [batch_size, sen_len(trg), sen_len(src)]
+            context = torch.bmm(product_softmax, encoder_ouput)
+            
+            output_1 = self.output_linear_decoder(self.dropout(decoder_output))
+            output_2 = self.output_linear_context(self.dropout(context))
+            
+            output = output_1 + output_2
+            output = F.log_softmax(output, dim=2)
+            
+            return output, hidden, product_softmax
+            
+              
+            
