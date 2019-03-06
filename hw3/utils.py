@@ -1,6 +1,7 @@
 # Module for training and testing models, along with other utils.
 
 import matplotlib.pyplot as plt
+from torch import optim
 
 
 # Functions to save/load models
