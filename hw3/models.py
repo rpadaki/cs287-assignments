@@ -44,8 +44,7 @@ class EncoderLSTM(EmbeddingLM):
 
 class DecoderLSTM(EncoderLSTM):
     """Inherit same architecture as encoder, but reversed"""
-    def __init__(text, hidden_size=500, num_layers=2, dropout=0.0,
-                 bidirectional_encoder=False, context_size=1, **kwargs):
+    def __init__(text, bidirectional_encoder=False, context_size=1, **kwargs):
         super(DecoderLSTM, self).__init__(text, **kwargs)
         self.encoder_directions = 2 if bidirectional_encoder else 1
         self.context_size = context_size
