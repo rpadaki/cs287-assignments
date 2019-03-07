@@ -210,7 +210,6 @@ class ModelEval(TrainTestBase):
         src = Variable(tensor_sentence.view(1, -1).expand(beam_size, -1))
         hidden = self.init_hidden(beam_size, zeros=True)
         
-        # For attention, will use encoder_output (not otherwise)
         encoder_output, encoder_hidden = self.models[0](src, hidden)
         self.set_prev_hidden(encoder_hidden)
         
