@@ -326,7 +326,7 @@ class ModelEval(TrainTestBase):
                 break
             words_src = self.create_text(sent, True)
             words_trg = self.create_text(batch_trg[i], False)
-            words_pred_list = list()
+            words_pred_list = []
             for j in range(len(batch_preds[i])):
                 words_pred_list.append(self.create_text(batch_preds[i][j], False,
                                                        is_variable=True))
