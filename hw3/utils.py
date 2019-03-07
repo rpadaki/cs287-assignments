@@ -2,6 +2,7 @@
 
 import matplotlib.pyplot as plt
 from torch import optim
+import numpy as np
 
 
 # Functions to save/load models
