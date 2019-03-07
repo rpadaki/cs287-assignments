@@ -27,20 +27,28 @@ class TrainTestBase(object):
     :models: should be list of [encoder, decoder]
     """
     def __init__(self, models, TEXT_SRC, TEXT_TRG, attention=False, 
-                 mask_src=False, cuda=True):
+                 mask_src=False, reverse_encoding_input=False, cuda=True):
         self.TEXT_SRC = TEXT_SRC
         self.TEXT_TRG = TEXT_TRG  
         # Padding
         self.padding_src = TEXT_SRC.vocab.stoi['<pad>']
-        self.padding_trg = TEXT_TRG.vocab.stroi['<pad>']
+        self.padding_trg = TEXT_TRG.vocab.stoi['<pad>']
         self.models = models
         self.use_attention = attention
+        self.reverse_encoding_input = False
         self.mask_src = mask_src
         self.cuda = cuda and torch.cuda.is_available()
+        if self.cuda:
+            print('Using CUDA')
         
         
     def get_src_and_trg(self, batch):
-        src = torch.t(batch.src.data).contiguous()
+        if self.reverse_encoding_input:
+            src_data = torch.t(batch.src.data)
+            ix_rev = torch.LongTensor(np.arange(src_data.size(1) - 1, -1, -1))
+            src = torch.index_select(torch.t(batch.src.data), dim=1, index=ix_rev).contiguous()
+        else:
+            src = torch.t(batch.src.data).contiguous()
         trg = torch.t(batch.trg.data)
         trg_feature = trg[:, :-1].contiguous()
         trg_label = trg[:, 1:].contiguous()
@@ -51,25 +59,26 @@ class TrainTestBase(object):
         return torch.zeros(self.models[model_ix].num_layers * num_directions, 
                            batch_size, self.models[model_ix].hidden_size)
       
-    def init_hidden(self, batch_size, model_ix=0):
-        if self.prev_hidden:
+    def init_hidden(self, batch_size, model_ix=0, zeros=True):
+        if self.prev_hidden and zeros:
             hidden = self.prev_hidden
         else:
             hidden = (self.initial_hidden(batch_size, model_ix) for i in range(2))
         if self.cuda:
-            hidden = tuple(x.cuda() for x in hidden)
-        return tuple(Variable(x) for x in hidden)
+            hidden = tuple(h.cuda() for h in hidden)
+        return tuple(Variable(h) for h in hidden)
            
     def init_model_inputs(self, batch, **kwargs):
-        src, trg_feature, trg_label = tuple(Variable(x) for x in self.get_src_and_trg(batch))
-        hidden = self.init_hidden(batch.src.size(1), **kwargs)
         if self.cuda:
-            return src.cuda(), trg_feature.cuda(), trg_label.cuda(), hidden
+            src, trg_feature, trg_label = tuple(x.cuda() for x in self.get_src_and_trg(batch))
         else:
-            return src, trg_feature, trg_label, hidden
+            src, trg_feature, trg_label = self.get_src_and_trg(batch)
+        hidden = self.init_hidden(batch.src.size(1), **kwargs)
+        return Variable(src), Variable(trg_feature), Variable(trg_label)
           
     def init_epoch(self):
         self.prev_hidden = None
+        self.attn_log = []
         
     def set_prev_hidden(self, hidden):
         if self.models[1].encoder_directions == 2:
@@ -78,12 +87,13 @@ class TrainTestBase(object):
           self.prev_hidden = hidden
           
     def get_attn_mask(self, src):
-        if not self.mask_src:
-            return None
-        else:
+        if self.mask_src:
             mask_padding = torch.eq(src, self.src_pad).type(torch.FloatTensor)
             mask_padding = mask_padding.cuda if self.cuda else mask_padding
             return mask_padding
+        else:
+            return None
+            
         
     def run_model(self, batch, mode='mean'):
         src, trg_feature, trg_label, hidden = self.init_model_inputs(batch, model_ix=0)
@@ -94,6 +104,9 @@ class TrainTestBase(object):
             # stuff for attention
             mask_padding = self.get_attn_mask(src)
             decoder_output, decoder_hidden, decoder_attn = self.models[1](trg_feature, prev_hidden, encoded_hidden, mask_padding)
+            if self.record_atten:
+                _, preds = torch.topk(decoder_output, k=1, dim=2)
+                self.attn_log.append((decoder_attn, src, preds.squeeze(), trg_label))
         else:
             decoder_output, decoder_hidden = self.models[1](trg_feature, prev_hidden, encoded_hidden)
         
@@ -102,7 +115,8 @@ class TrainTestBase(object):
         
     def nll_loss(self, log_probs, output, mode='mean'):
         batch_size = log_probs.size(0)
-        sentence_len = torch.sum((output != self.padding_trg).type(torch.cuda.FloatTensor)) / batch_size
+        typing = torch.cuda.FloatTensor if self.cuda else torch.FloatTensor
+        sentence_len = torch.sum((output != self.padding_trg).type(typing)) / batch_size
         log_probs = log_probs.view(-1, log_probs.size(2))
         output = output.view(-1)
         
@@ -127,31 +141,31 @@ class ModelEval(TrainTestBase):
         super(ModelEval, self).init_epoch()
         self.attn_log = []
         
-    def visualize_attn(self, decoder_attn_sample, src_sample, pred_sample, target_label=None, save=None):
+    def visualize_attn(self, decoder_attn_sample, src_sample, pred_sample, trg_label=None, save=None):
         attn = decoder_atten_sample.cpu().data.numpy()
         src_words = np.array(list(map(lambda x: self.TEXT_SRC.vocab.itos[x],
                                       src_sample.cpu().data.numpy())))
         pred_words = np.array(list(map(lambda x: self.TEXT_TRG.vocab.itos[x],
                                        pred_sample.cpu().data.numpy())))
-        if target_label is not None:
+        if trg_label is not None:
             trg_cpu = target_label.cpu().data.numpy()
             trg_words = np.array(list(map(lambda x: self.TEXT_TRG.vocab.itos[x], trg_cpu)))
             pred_words = np.array(['%s (%s)' % (pred_words[i], trg_words[i]) for i in range(pred_words.shape[0])])
             pad_ix = np.where(trg_words == '<pad>')[0]
-        if len(pad_ix):
-            clip_len = pad_ix[0]
-            trg_words = trg_words[:clip_len]
-            pred_words = pred_words[:clip_len]
-            atten = atten[:clip_len, :]
-        
+            if len(pad_ix):
+                clip_len = pad_ix[0]
+                trg_words = trg_words[:clip_len]
+                pred_words = pred_words[:clip_len]
+                attn = attn[:clip_len, :]
+    
         # Visualizations
         fig, ax = plt.subplots()
-        ax.imshow(attn, cmap='blue')
+        ax.imshow(attn, cmap='gray')
         plt.xticks(range(len(src_words)), src_words, rotation='vertical')
         plt.yticks(range(len(pred_words)), pred_words)
         
         ax.xaxis.tick_top()
-        if save is not none:
+        if save is not None:
             plt.savefig(save)
         plt.show()
         
@@ -168,7 +182,7 @@ class ModelEval(TrainTestBase):
         for i, batch in enumerate(test_iter):
             nll_count += batch.trg.data.numel()
             loss = self.run_model(batch, mode='sum')
-            nll_sum += loss.data.init_model_inputs
+            nll_sum += loss.data.item()
             
             if self.visualize_freq and i % self.visualize_freq == 0:
                 sample = self.attn_log[-1]
@@ -181,16 +195,189 @@ class ModelEval(TrainTestBase):
             
         print('validation time: %f sec' % (time.time() - start_time))
         return np.exp(nll_sum / nll_cnt)
+
+    def beam_search_predict(self, sentence, ref_beam, ref_vocab, beam_size=100,
+                            pred_len=3, pred_num=None, ignore_eos=False, translate=False):
+        """Beam search implementation for selecting viable translations"""
+        if pred_num is None:
+            pred_num = beam_size
+            
+        tensor_sentence = torch.LongTensor(sentence)
+        
+        if self.reverse_encoder_input:
+            ix_rev = torch.LongTensor(np.arange(tensor_sentence.size(0) - 1, -1, -1))
+            tensor_sentence = torch.index_select(tensor_sentence, dim=0, index=ix_rev)
+            
+        tensor_sentence = tensor_sentence.cuda() if self.cuda else tensor_sentence
+        
+        src = Variable(tensor_sentence.view(1, -1).expand(beam_size, -1))
+        hidden = self.init_hidden(beam_size, zeros=True)
+        
+        encoder_output, encoder_hidden = self.models[0][src, hidden]
+        self.set_prev_hidden(encoder_hidden)
+         
+        sos_token = self.TEXT_TRG.vocab.stoi['<s>']  # Start with SOS 
+        self.current_beams = (sos_token * torch.ones(beam_size, 1)).type(torch.LongTensor)
+        self.current_beam_vals = torch.zeros(beam_size, 1).type(torch.FloatTensor)
+        if self.cuda:
+            self.current_beams = self.current_beams.cuda()
+            self.current_beam_vals = self.current_beam_vals.cuda()
+        self.current_beams = Variable(self.current_beams)
+        self.self.current_beam_vals = Variable(self.current_beam_vals)
+        
+        if translate:
+            final_preds = []
+            
+        for i in range(pred_len):
+            if translate:
+                ref_beam, ref_vocab = self.create_ref_arrays(self.current_beams.size(0))
+            current_sentence = self.current_beams[:, i:i + 1]
+            if self.use_attention:
+                mask_padding = self.get_attn_mask(src)
+                decoder_output, decoder_hidden, decoder_attn = self.models[1](
+                    current_sentence, self.prev_hidden, encoder_output[:self.current_bames.size(0)], mask_padding)
+                # record attention?
+                if self.record_attention:
+                    _, pred = torch.topk(dec_output, k=1, dim=2)
+                    self.attn_log.append((decoder_attn, src, pred.squeeze(), None))
+            else:
+                decoder_output, decoder_hidden = self.models[1](
+                    current_sentence, self.prev_hidden, encoder_output)
+            self.prev_hidden = decoder_hidden
+            
+            decoder_output = decoder_output.squeeze()
+            
+            if ignore_eos:  # EOS tokens
+                eos_token = self.TEXT_TRG.vocab.stoi['</s>']
+                decoder_output[:, eos_token] = -np.inf
+                
+            decoder_output = decoder_output + self.current_beam_vals
+            
+            if i == 0:  # Start words the same, so restrict to first row  
+                decoder_output = decoder_output[0, :]
+            else:
+                decoder_output = decoder_output.view(-1)
+                
+            topk_decoder, topk_ix = torch.topk(decoder_output, k=beam_size)
+            prev_ix = torch.index_select(ref_beam, dim=0, index=topk_ix)
+            prevs = torch.index_select(self.current_beams, dim=0, index=prev_ix)
+            
+            # Update hidden to reflect previous sentences picked
+            self.prev_hidden = tuple(torch.index_select(
+                self.prev_hidden[x], dim=1, index=prev_ix) for x in range(len(self.prev_hidden)))
+            
+            # Update current beam values 
+            self.current_beam_vals = topk_decoder.view(-1, 1)  # [beam_size, 1]
+            nexts = torch.index_select(ref_voc, dim=0, index=topk_ix).view(-1, 1)
+            self.current_beams = torch.cat((prevs, nexts), dim=1)
+            
+            if translate:
+                sentences = []
+                eos_token = self.TEXT_TRG.vocab.stoi['</s>']
+                for i in range(self.current_beams.size(0)):
+                    if self.current_beams[i: -1].data.item() == eos_token:
+                        final_preds.append(self.current_beams[i,:])
+                    else:
+                        sentences.append(i)
+                if self.cuda:
+                    sentence_ix = Variable(torch.LongTensor(sentences)).cuda() 
+                else:
+                    sentence_ix = Variable(torch.LongTensor(sentences))
+                
+                if len(sentences) > 100 or len(sentence_ix) == 0:  # Reselect
+                    return final_preds  
+                self.current_beams = torch.index_select(self.current_beams, 0, sentence_ix)
+                self.current_beam_vals = torch.index_select(self.current_beam_vals, 0, sentence_ix)
+                self.prev_hidden = tuple(torch.index_select(self.prev_hidden[x], 1, sentence_ix) 
+                                         for x in range(len(self.prev_hidden)))
+        if translate:
+            return final_preds
+        return self.current_beams
+
+    def escape(l):
+        """For printing out data"""
+        return l.replace("\"", "<quote>").replace(",", "<comma>")
+      
+    def create_ref_arrays(self, beam_size):
+        # Keep track of ix for expanding beams and vocab
+        trg_vocab_size = len(self.TEXT_TRG.vocab)
+        ref_beam = torch.LongTensor(np.arange(beam_size)).view(-1, 1).expand(-1, trg_vocab_size)
+        ref_beam = ref_beam.contiguous().view(-1)
+        ref_beam = ref_beam.cuda() if self.cuda else ref_beam
+        ref_beam = Variable(ref_beam)
+
+        ref_voc = torch.LongTensor(np.arange(trg_vocab_size)).view(1, -1).expand(beam_size, -1)
+        ref_voc = ref_voc.contiguous().view(-1)
+        ref_voc = ref_voc.cuda() if self.cuda else ref_voc
+        ref_voc = Variable(ref_voc)
+        return (ref_beam, ref_voc)
+      
+    def create_text(self, word_ids, src, is_variable=False):
+        """:src: True or False specifying what language"""
+        TEXT = self.TEXT_SRC if src else self.TEXT_TRG
+        if is_variable:
+            words = [TEXT.vocab.itos[word_ids[k].data.item()] for k in range(1, len(word_ids))]
+        else:
+            words = [TEXT.vocab.itos[word_ids[k]] for k in range(1, len(word_ids))]
+        return ' '.join(words)
+    
+    def view_predictions(self, batch_src, batch_trg, batch_preds):
+        for i, sent in enumerate(batch_src):
+            if i > 10:
+                break
+            words_src = self.create_text(sent, True)
+            words_trg = self.create_text(batch_trg[i], False)
+            words_pred_list = []
+            for j in range(len(batch_preds[i])):
+                words_pred_list.append(self.create_text(batch_preds[i][j], False, is_variable=True))
+            for w in words_pred_list:
+                print(w)
+    
+    def predict(self, test_set, fname='predictions.txt', num_candidates=100, pred_len=3, 
+                beam_size=100, ignore_eos=False, translate=False):
+        start_time = time.time()
+        for model in self.models:
+            model.eval()
+        (ref_beam, ref_voc) = self.create_ref_arrays(beam_size)
+        
+        self.init_epoch()
+        preds = []
+        
+        for i, sentence in enumerate(test_set):
+            translations = self.beam_search_predict(sentence, ref_beam=ref_beam,
+                                                    ref_voc=ref_voc, pred_len=pred_len,
+                                                    beam_size=beam_size, ignore_eos=ignore_eos,
+                                                    translate=translate)
+            preds.append(translations)
+        if translate:
+            return preds
+          
+        print('Writing predictions to %s' % fname)
+        with open(fname, 'w') as fout:
+            print('id,Predicted', file=fout)
+            for i, preds_ in enumerate(preds):
+                candidates = []
+                for j in range(num_candidates):
+                    words = [self.TEXT_TRG.vocab.itos[preds_[j, k].data[0]] for k in range(1, pred_len + 1)]
+                    sentence = '|'.join(self.escape(l) for l in words)
+                    candidates.append(sentence)
+                print('%d,%s' % (i, ' '.join(candidates)), file=fout)
+        print('Computing predictions took %f seconds' % (time.time() - start_time))
+        
+        # Wrap model.eavl
+        for model in self.models:
+            model.train()
         
         
 class ModelTrain(TrainTestBase):
     def __init__(self, models, TEXT_SRC, TEXT_TRG, lr=0.1, optimizer=optim.SGD,
-                 lr_decay_type=None, lr_decay_rate=0.1, clip_norm=10, **kwargs):
+                 lr_decay_type=None, lr_decay_rate=0.1, lr_decay_force=np.inf, 
+                 clip_norm=10, **kwargs):
         '''
         Class to train models.  
         :lr_decay_type: type of learning rate decay, pick 'adaptive' or 'linear'
         '''
-        super(ModelTrainer, self).__init__(models, TEXT_SRC, TEXT_TRG, **kwargs)
+        super(ModelTrain, self).__init__(models, TEXT_SRC, TEXT_TRG, **kwargs)
         self.base_lr = lr
         # Optimizer for each model
         self.optimizers = [optimizer(filter(lambda x: x.requires_grad, 
@@ -198,14 +385,20 @@ class ModelTrain(TrainTestBase):
                            for model in self.models]
         # Learning rate decay
         self.lr_decay_type = lr_decay_type
-        if self.lr_decay_type is not None or self.lr_decay_type == 'adaptive':
+        self.lr_decay_force = lr_decay_force
+
+        if self.lr_decay_type is None or self.lr_decay_type == 'adaptive':
             self.lr_lambda = lambda i: 1
         elif self.lr_decay_type == 'linear':
             self.lr_lambda = lambda i: (1 / (1 + (i - 6) * self.lr_decay_rate) if i > 6 else 1)
+        
+        self.schedulers = [optim.lr_scheduler.LambdaLR(o, self.lr_lambda) for o in self.optimizers]
+        
         self.clip_norm = clip_norm
+        self.restart_logs()
+
         if self.cuda:
             [model.cuda() for model in self.models]
-        self.restart_logs()
         
     def restart_logs(self):
         self.training_losses = []
@@ -213,11 +406,11 @@ class ModelTrain(TrainTestBase):
         self.val_performance = []
         
     def get_loss_data(self, loss):
-        try:
-            return loss.data.cpu().numpy()[0]
-        except:
+        if self.cuda:
             return loss.data.cpu().numpy()
-    
+        else:
+            return loss.data.numpy()[0]
+            
     def record_updates(self, loss, norm):
         self.training_losses.append(loss)
         self.training_norms.append(norm)
@@ -230,7 +423,7 @@ class ModelTrain(TrainTestBase):
             norm = -1
         return norm
       
-    def train_batch(self, batch, record=False):
+    def train_batch(self, batch, **kwargs):
         [model.zero_grad() for model in self.models]
         loss = self.run_model(batch)
         loss.backward()
@@ -238,45 +431,50 @@ class ModelTrain(TrainTestBase):
         norm = self.clip_norms()
         
         loss_data = self.get_loss_data(loss)
-        if record:
+
+        if kwargs.get('verbose', False):
             self.record_updates(loss_data, norm)
+
         [optimizer.step() for optimizer in self.optimizers]
         return loss_data, norm
-      
       
     def init_parameters(self):
         for model in self.models:
             for p in model.parameters():
-                p.data.uniform_(-0.05, 0.05)
+                p.data.uniform_(-0.05, 0.05)  # experiment? Seemed to be ok last time
     
     def train(self, train_iter, val_iter, eval_=False, save_model=False, 
-              init_params=True, record=False, **kwargs):
+              init_params=True, **kwargs):
         self.restart_logs()
         start_time = time.time()
         if init_params:
             self.init_parameters()
+
         train_iter.init_epoch()
+
         for epoch in range(kwargs.get('num_iter', 100)):
             self.init_epoch()
-            for model in self.models:
-                model.train()
+            [model.train() for model in self.models]
                 
             # Learning rate decay?
-            if self.ly_decay_type == 'adaptive':
-                if (epoch > 2 and self.val_performance[-1] > self.val_performance[-2]):
+            if self.lr_decay_type == 'adaptive':
+                if (epoch > 2 and self.val_performance[-1] > self.val_performance[-2]) or (epoch >= self.lr_decay_force):
                     self.base_lr = self.base_lr / 2
                     self.optimizers = [optimizer(filter(lambda x: x.requires_grad, 
                                             model.parameters()), lr=lr) 
                                        for model in self.models]
+                    print('Decay LR to %f' % self.base_lr)
             for scheduler in self.schedulers:
                 scheduler.step()
                 
             train_iter = iter(train_iter)
-            for batch in train_iter:
-                result_loss, result_norm = self.train_batch(batch)
 
-            if record:
-                self.record_updates(result_loss, result_norm)
+            for batch in train_iter:
+                result_loss, result_norm = self.train_batch(batch, **kwargs)
+
+            if epoch % kwargs.get('skip_iter', 1) == 0:
+                if not kwargs.get('verbose', False):
+                    self.make_recordings(res_loss, res_norm)
 
             # Print out progress
             print('Epoch %d, loss: %f, norm: %f, elapsed: %f, lr: %f' \
@@ -284,13 +482,15 @@ class ModelTrain(TrainTestBase):
                      np.mean(self.training_norms[-10:]),
                      time.time() - start_time, self.base_lr))
 
-            if eval_ and (val_iter is not None):
+            if (eval_ is not None) and (val_iter is not None):
                 self.val_performance.append(eval_.evaluate(val_iter))
                 print('Validation: %f' % self.val_performance[-1])
 
-            if save_model:
+            if save_model is not None:
                 path_name = save_model + 'epoch_%d.ckpt.tar' % epoch
+                print('Saving model')
                 save_checkpoint(self.models[0], self.models[1], path_name)
+
                 
         
             
