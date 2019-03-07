@@ -1,32 +1,10 @@
-# Module for training and testing models, along with other utils.
-
-import matplotlib.pyplot as plt
-from torch import optim
-
-
-# Functions to save/load models
-def save_checkpoint(mod_enc, mod_dec, filename='checkpoint.pth.tar'):
-    state_dict = {'model_encoder' : mod_enc.state_dict(),
-                  'model_decoder' : mod_dec.state_dict()}
-    torch.save(state_dict, filename)
-    
-def load_checkpoint(filename='checkpoint.pth.tar'):
-    state_dict = torch.load(filename)
-    return state_dict['model_encoder'], state_dict['model_decoder']
-  
-def set_parameters(model, sv_model, cuda=True):
-    for i,p in enumerate(model.parameters()):
-        p.data = sv_model[list(sv_model)[i]]
-    model.cuda()
-
-
 class TrainTestBase(object):
     """
     Parent class for training and evaluation
     :models: should be list of [encoder, decoder]
     """
     def __init__(self, models, TEXT_SRC, TEXT_TRG, attention=False, 
-                 mask_src=False, reverse_encoding_input=False, cuda=True):
+                 mask_src=False, reverse_encoder_input=False, cuda=True):
         self.TEXT_SRC = TEXT_SRC
         self.TEXT_TRG = TEXT_TRG  
         # Padding
@@ -34,7 +12,7 @@ class TrainTestBase(object):
         self.padding_trg = TEXT_TRG.vocab.stoi['<pad>']
         self.models = models
         self.use_attention = attention
-        self.reverse_encoding_input = False
+        self.reverse_encoder_input = False
         self.mask_src = mask_src
         self.cuda = cuda and torch.cuda.is_available()
         if self.cuda:
@@ -42,7 +20,7 @@ class TrainTestBase(object):
         
         
     def get_src_and_trg(self, batch):
-        if self.reverse_encoding_input:
+        if self.reverse_encoder_input:
             src_data = torch.t(batch.src.data)
             ix_rev = torch.LongTensor(np.arange(src_data.size(1) - 1, -1, -1))
             src = torch.index_select(torch.t(batch.src.data), dim=1, index=ix_rev).contiguous()
@@ -54,7 +32,7 @@ class TrainTestBase(object):
         return src, trg_feature, trg_label
       
     def initial_hidden(self, batch_size, model_ix):
-        num_directions = 2 if self.models[model_num].bidirectional else 1
+        num_directions = 2 if self.models[model_ix].bidirectional else 1
         return torch.zeros(self.models[model_ix].num_layers * num_directions, 
                            batch_size, self.models[model_ix].hidden_size)
       
@@ -67,13 +45,32 @@ class TrainTestBase(object):
             hidden = tuple(h.cuda() for h in hidden)
         return tuple(Variable(h) for h in hidden)
            
-    def init_model_inputs(self, batch, **kwargs):
+    def init_model_inputs(self, batch, zeros=True, model_ix=0):
         if self.cuda:
             src, trg_feature, trg_label = tuple(x.cuda() for x in self.get_src_and_trg(batch))
         else:
             src, trg_feature, trg_label = self.get_src_and_trg(batch)
-        hidden = self.init_hidden(batch.src.size(1), **kwargs)
+        hidden = self.init_hidden(batch.src.size(1), zeros, model_ix)
         return Variable(src), Variable(trg_feature), Variable(trg_label)
+      
+    def prepare_model_inputs(self, batch, **kwargs):
+        if self.cuda:
+            src, trg_feat, trg_lab = \
+                tuple(t.cuda() for t in self.get_src_and_trg(batch))
+        else:
+            src, trg_feat, trg_lab = self.get_src_and_trg(batch)
+
+        # TODO: can comment this out (assuming it passes
+        # -- just is checking batch-sz)
+        assert batch.src.size(1) == batch.trg.size(1)
+        var_hidden = self.prepare_hidden(batch.src.size(1), **kwargs)
+
+        var_src = autograd.Variable(src)
+        var_trg_feat = autograd.Variable(trg_feat)
+        var_trg_lab = autograd.Variable(trg_lab)
+
+        return (var_src, var_trg_feat, var_trg_lab, var_hidden)
+
           
     def init_epoch(self):
         self.prev_hidden = None
@@ -92,10 +89,29 @@ class TrainTestBase(object):
             return mask_padding
         else:
             return None
+    
+    def prepare_model_inputs(self, batch, **kwargs):
+        if self.cuda:
+            src, trg_feat, trg_lab = \
+                tuple(t.cuda() for t in self.get_src_and_trg(batch))
+        else:
+            src, trg_feat, trg_lab = self.get_src_and_trg(batch)
+
+        # TODO: can comment this out (assuming it passes
+        # -- just is checking batch-sz)
+        assert batch.src.size(1) == batch.trg.size(1)
+        var_hidden = self.init_hidden(batch.src.size(1), **kwargs)
+
+        var_src = autograd.Variable(src)
+        var_trg_feat = autograd.Variable(trg_feat)
+        var_trg_lab = autograd.Variable(trg_lab)
+
+        return (var_src, var_trg_feat, var_trg_lab, var_hidden)
+
             
         
     def run_model(self, batch, mode='mean'):
-        src, trg_feature, trg_label, hidden = self.init_model_inputs(batch, model_ix=0)
+        src, trg_feature, trg_label, hidden = self.prepare_model_inputs(batch, zeros=0, model_ix=0)
         encoded_output, encoded_hidden = self.models[0](src, hidden)
         self.set_prev_hidden(encoded_hidden)
         
@@ -107,7 +123,7 @@ class TrainTestBase(object):
                 _, preds = torch.topk(decoder_output, k=1, dim=2)
                 self.attn_log.append((decoder_attn, src, preds.squeeze(), trg_label))
         else:
-            decoder_output, decoder_hidden = self.models[1](trg_feature, prev_hidden, encoded_hidden)
+            decoder_output, decoder_hidden = self.models[1](trg_feature, hidden, encoded_hidden)
         
         self.prev_hidden = decoder_hidden
         return self.nll_loss(decoder_output, trg_label, mode=mode)
@@ -195,9 +211,8 @@ class ModelEval(TrainTestBase):
         print('validation time: %f sec' % (time.time() - start_time))
         return np.exp(nll_sum / nll_cnt)
 
-    def beam_search_prediction(self, sentence, ref_beam, ref_vocab, beam_size=100,
-                               pred_len=3, pred_num=None, ignore_eos=False, 
-                               translate=False):
+    def beam_search_predict(self, sentence, ref_beam, ref_vocab, beam_size=100,
+                            pred_len=3, pred_num=None, ignore_eos=False, translate=False):
         """Beam search implementation for selecting viable translations"""
         if pred_num is None:
             pred_num = beam_size
@@ -213,7 +228,7 @@ class ModelEval(TrainTestBase):
         src = Variable(tensor_sentence.view(1, -1).expand(beam_size, -1))
         hidden = self.init_hidden(beam_size, zeros=True)
         
-        encoder_output, encoder_hidden = self.models[0][src, hidden]
+        encoder_output, encoder_hidden = self.models[0](src, hidden)
         self.set_prev_hidden(encoder_hidden)
          
         sos_token = self.TEXT_TRG.vocab.stoi['<s>']  # Start with SOS 
@@ -223,7 +238,7 @@ class ModelEval(TrainTestBase):
             self.current_beams = self.current_beams.cuda()
             self.current_beam_vals = self.current_beam_vals.cuda()
         self.current_beams = Variable(self.current_beams)
-        self.self.current_beam_vals = Variable(self.current_beam_vals)
+        self.current_beam_vals = Variable(self.current_beam_vals)
         
         if translate:
             final_preds = []
@@ -235,7 +250,7 @@ class ModelEval(TrainTestBase):
             if self.use_attention:
                 mask_padding = self.get_attn_mask(src)
                 decoder_output, decoder_hidden, decoder_attn = self.models[1](
-                    current_sentence, self.prev_hidden, encoder_output[:self.current_bames.size(0)], mask_padding)
+                    current_sentence, self.prev_hidden, encoder_output[:self.current_beams.size(0)], mask_padding)
                 # record attention?
                 if self.record_attention:
                     _, pred = torch.topk(dec_output, k=1, dim=2)
@@ -268,7 +283,7 @@ class ModelEval(TrainTestBase):
             
             # Update current beam values 
             self.current_beam_vals = topk_decoder.view(-1, 1)  # [beam_size, 1]
-            nexts = torch.index_select(ref_voc, dim=0, index=topk_ix).view(-1, 1)
+            nexts = torch.index_select(ref_vocab, dim=0, index=topk_ix).view(-1, 1)
             self.current_beams = torch.cat((prevs, nexts), dim=1)
             
             if translate:
@@ -338,16 +353,16 @@ class ModelEval(TrainTestBase):
         start_time = time.time()
         for model in self.models:
             model.eval()
-        (ref_beam, ref_voc) = self.create_ref_arrays(beam_size)
+        (ref_beam, ref_vocab) = self.create_ref_arrays(beam_size)
         
         self.init_epoch()
         preds = []
         
         for i, sentence in enumerate(test_set):
-            translations = self.run_model_predict(sentence, ref_beam=ref_beam,
-                                                  ref_voc=ref_voc, pred_len=pred_len,
-                                                  beam_size=beam_size, ignore_eos=ignore_eos,
-                                                  translate=translate)
+            translations = self.beam_search_predict(sentence, ref_beam=ref_beam,
+                                                    ref_vocab=ref_vocab, pred_len=pred_len,
+                                                    beam_size=beam_size, ignore_eos=ignore_eos,
+                                                    translate=translate)
             preds.append(translations)
         if translate:
             return preds
@@ -417,7 +432,9 @@ class ModelTrain(TrainTestBase):
         
     def clip_norms(self):
         if self.clip_norm > 0:
-            parameters = tuple(model.parameters() for model in self.models)
+            parameters = tuple()
+            for model in self.models:
+                parameters += tuple(model.parameters())
             norm = nn.utils.clip_grad_norm(parameters, self.clip_norm)
         else:
             norm = -1
@@ -490,14 +507,3 @@ class ModelTrain(TrainTestBase):
                 path_name = save_model + 'epoch_%d.ckpt.tar' % epoch
                 print('Saving model')
                 save_checkpoint(self.models[0], self.models[1], path_name)
-        
-                
-        
-            
-        
-            
-          
-        
-        
-            
-
