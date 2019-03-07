@@ -1,11 +1,3 @@
-import torch
-from torchtext import data, datasets
-from namedtensor import ntorch, NamedTensor
-from namedtensor.text import NamedField
-import torch.nn as nn
-import torch.nn.functional as F
-from torch.autograd import Variable
-
 class EmbeddingLM(nn.Module):
     def __init__(self, text, dropout=0.0, embedding_size=1000, max_embedding_norm=None):
         super(EmbeddingLM, self).__init__()
@@ -18,15 +10,11 @@ class EmbeddingLM(nn.Module):
                                        max_norm=max_embedding_norm)
 
 
-
 class EncoderLSTM(EmbeddingLM):
-    def __init__(self, text, hidden_size=500, num_layers=2, 
-                 embedding_size=1000, dropout=0.0, bidirectional=False, **kwargs):
+    def __init__(self, text, hidden_size=500, num_layers=2, bidirectional=False, **kwargs):
         super(EncoderLSTM, self).__init__(text, **kwargs)
-        self.dropout = nn.Dropout(dropout)
-        self.vocab_size = len(text.vocab)
-        self.embedding_dim = embedding_size
-        self.embeddings = nn.Embedding(self.vocab_size, self.embedding_dim)
+#         self.embedding_dim = embedding_size
+#         self.embeddings = nn.Embedding(self.vocab_size, self.embedding_dim)
         
         self.hidden_size = hidden_size
         self.num_layers = num_layers
@@ -44,13 +32,12 @@ class EncoderLSTM(EmbeddingLM):
 
 class DecoderLSTM(EncoderLSTM):
     """Inherit same architecture as encoder, but reversed"""
-    def __init__(text, hidden_size=500, num_layers=2, dropout=0.0,
-                 bidirectional_encoder=False, context_size=1, **kwargs):
+    def __init__(self, text, bidirectional_encoder=False, context_size=1, **kwargs):
         super(DecoderLSTM, self).__init__(text, **kwargs)
         self.encoder_directions = 2 if bidirectional_encoder else 1
         self.context_size = context_size
         
-        input_dim = context_len * self.num_layers * self.encoder_directions + 1
+        input_dim = context_size * self.num_layers * self.encoder_directions + 1
         self.output = nn.Linear(input_dim * self.hidden_size, self.vocab_size)
         
     def forward(self, input_, hidden, context):
@@ -60,12 +47,12 @@ class DecoderLSTM(EncoderLSTM):
         output, hidden = self.lstm(x, hidden)
         
         x = torch.cat(context[:self.context_size])
-        batch_size = context.size(1)
+        batch_size = x.size(1)
         sentence_len = output.size(1)
         
         # Convert this to named version? rn [batch_size, 1, hidden_size * context_size]
         x = x.permute(1, 0, 2).contiguous().view(batch_size, 1, -1)
-        x = x.expand(-1, sentence_length, -1)
+        x = x.expand(-1, sentence_len, -1)
         output = torch.cat((output, x), dim=2)
         
         output = self.output(output)
@@ -84,7 +71,7 @@ class DecoderAttn(EncoderLSTM):
         self.output_linear_context = nn.Linear(self.encoder_directions * self.hidden_size, 
                                                self.vocab_size)
         self.linear_encoder = linear_encoder
-        if self.linear_encode > 0:
+        if self.linear_encoder > 0:
             self.attn_linear = nn.Linear(self.encoder_directions * self.linear_encoder, 
                                          self.hidden_size)
         if tie_weights:
@@ -93,37 +80,37 @@ class DecoderAttn(EncoderLSTM):
             else:
                 self.out_linear_decoder.weight = self.embeddings.weight
                 
-        def forward(self, input_, hidden, encoder_output, masks=None):
-            e = self.embeddings(input_)
-            e = self.dropout(e)
-            decoder_output, hidden = self.lstm(e, hidden)
-            
-            # Attention
-            if self.linear_encoder > 0:
-                output_linear_encoder = self.attn_linear(encoder_output)
-            else:
-                output_linear_encoder = encoder_output
-            
-            # output_encoder_prm is [batch_size, hidden_size, sentence_len (src)] <- TODO: Named
-            output_encoder_perm = output_linear_encoder.permute(0, 2, 1)
-            products = torch.bmm(decoder_output, output_encoder_perm)
-            
-            # masks is [batch_size, sentence_len] 
-            if masks is not None:
-                masks = Variable(torch.Tensor([np.inf])) * masks
-                masks[masks != masks] = 0
-                products = products - torch.unsqueeze(masks, 1)
-            
-            product_softmax = F.softmax(products, dim=2)  # [batch_size, sen_len(trg), sen_len(src)]
-            context = torch.bmm(product_softmax, encoder_ouput)
-            
-            output_1 = self.output_linear_decoder(self.dropout(decoder_output))
-            output_2 = self.output_linear_context(self.dropout(context))
-            
-            output = output_1 + output_2
-            output = F.log_softmax(output, dim=2)
-            
-            return output, hidden, product_softmax
+    def forward(self, input_, hidden, encoder_output, masks=None):
+        e = self.embeddings(input_)
+        e = self.dropout(e)
+        decoder_output, hidden = self.lstm(e, hidden)
+
+        # Attention
+        if self.linear_encoder > 0:
+            output_linear_encoder = self.attn_linear(encoder_output)
+        else:
+            output_linear_encoder = encoder_output
+
+        # output_encoder_prm is [batch_size, hidden_size, sentence_len (src)] <- TODO: Named
+        output_encoder_perm = output_linear_encoder.permute(0, 2, 1)
+        products = torch.bmm(decoder_output, output_encoder_perm)
+
+        # masks is [batch_size, sentence_len] 
+        if masks is not None:
+            masks = Variable(torch.Tensor([np.inf])) * masks
+            masks[masks != masks] = 0
+            products = products - torch.unsqueeze(masks, 1)
+
+        product_softmax = F.softmax(products, dim=2)  # [batch_size, sen_len(trg), sen_len(src)]
+        context = torch.bmm(product_softmax, encoder_output)
+
+        output_1 = self.output_linear_decoder(self.dropout(decoder_output))
+        output_2 = self.output_linear_context(self.dropout(context))
+
+        output = output_1 + output_2
+        output = F.log_softmax(output, dim=2)
+
+        return output, hidden, product_softmax
             
               
             
