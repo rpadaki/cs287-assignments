@@ -49,7 +49,7 @@ class DecoderLSTM(EncoderLSTM):
         self.encoder_directions = 2 if bidirectional_encoder else 1
         self.context_size = context_size
         
-        input_dim = context_len * self.num_layers * self.encoder_directions + 1
+        input_dim = context_size * self.num_layers * self.encoder_directions + 1
         self.output = nn.Linear(input_dim * self.hidden_size, self.vocab_size)
         
     def forward(self, input_, hidden, context):
