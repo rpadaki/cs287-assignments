@@ -77,22 +77,23 @@ def sent_inspect(batch, idx=0):
     print(' '.join([EN.vocab.itos[w] for w in batch.trg.data[:,idx]]))
 
 
-train_iter, val_iter = data.BucketIterator.splits((train, val), batch_size=32, device=device,
-                                                  repeat=False, sort_key=lambda x: len(x.src))
-bs_encoder = EncoderLSTM(DE, hidden_size=650, num_layers=4, embedding_size=650, 
-                         bidirectional=True, dropout=0.35)
-at_decoder = DecoderAttn(EN, hidden_size=650, num_layers=4, embedding_size=650, 
-                         dropout=0.35, tie_weights=True, linear_encoder=650, 
-                         bidirectional_encoder=True)
-trainer = ModelTrain([bs_encoder, at_decoder], DE, EN, lr=1.2, 
-                     lr_decay_type='adaptive', attention=True,
-                     clip_norm=5)
-evaluator = ModelEval([bs_encoder, at_decoder], DE, EN, attention=True,
-                        record_attention=False)
-trainer.train(train_iter, verbose=True, eval_=evaluator, val_iter=val_iter,
-              save_model='attn', num_iter=20)
+# # Only call these if starting from scratch. Better to load saved model attn.rpoch_10.ckpt.tar  below
+# train_iter, val_iter = data.BucketIterator.splits((train, val), batch_size=32, device=device,
+#                                                   repeat=False, sort_key=lambda x: len(x.src))
+# bs_encoder = EncoderLSTM(DE, hidden_size=650, num_layers=4, embedding_size=650, 
+#                          bidirectional=True, dropout=0.35)
+# at_decoder = DecoderAttn(EN, hidden_size=650, num_layers=4, embedding_size=650, 
+#                          dropout=0.35, tie_weights=True, linear_encoder=650, 
+#                          bidirectional_encoder=True)
+# trainer = ModelTrain([bs_encoder, at_decoder], DE, EN, lr=1.2, 
+#                      lr_decay_type='adaptive', attention=True,
+#                      clip_norm=5)
+# evaluator = ModelEval([bs_encoder, at_decoder], DE, EN, attention=True,
+#                         record_attention=False)
+# trainer.train(train_iter, verbose=True, eval_=evaluator, val_iter=val_iter,
+#               save_model='attn', num_iter=20)
 
-
+# Generates predictions  
 ld_enc, ld_dec = load_checkpoint('attn.epoch_10.ckpt.tar')
 ld_encoder = EncoderLSTM(DE, hidden_size=650, num_layers=4, embedding_size=650, 
                          bidirectional=True, dropout=0.35)
