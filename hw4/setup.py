@@ -16,6 +16,8 @@ LABEL = NamedField(sequential=False, names=())
 train, val, test = torchtext.datasets.SNLI.splits(TEXT, LABEL)
 
 # Clean up data - remove punctuation and standardize case
+
+
 def clean(sentence):
     return [w.strp('\'".!?,').lower() for w in sentence]
 
@@ -61,4 +63,3 @@ vectors[1] = torch.zeros(vectors.shape[1])
 TEXT.vocab.vectors = NamedTensor(vectors, ('word', 'embedding'))
 WORD_VECS = TEXT.vocab.vectors
 embedding_size = WORD_VECS.shape['embedding']
-
