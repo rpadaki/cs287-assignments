@@ -16,6 +16,12 @@ class encoder(nn.Module):
         self.embedding = nn.Embedding(self.num_embeddings, self.embedding_size)
         self.input = nn.Linear(self.embedding_size, self.hidden_size)
 
+        # Bias
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                m.weight.data.normal_(0, self.param_init)
+                m.bias.data.uniform_(-0.01, 0.01)
+
     def forward(self, sent1, sent2):
         """Compare the sentences, preform NLI"""
         s1 = self.embedding(sent1)
