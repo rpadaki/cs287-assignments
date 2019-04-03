@@ -1,13 +1,10 @@
 # PyTorch Implementation of A Decomposable Attention Model
 
-# Greetings from teh RC cluster  
-
 import random
 import torch
 import torchtext
 from torchtext.vocab import Vectors, GloVe
 
-# Named Tensor wrappers? May not work on cluster.
 from namedtensor import ntorch, NamedTensor
 from namedtensor.text import NamedField
 
@@ -17,6 +14,16 @@ TEXT = NamedField(names=('seqlen',))
 # Our labels $y$
 LABEL = NamedField(sequential=False, names=())
 train, val, test = torchtext.datasets.SNLI.splits(TEXT, LABEL)
+
+# Clean up data - remove punctuation and standardize case
+def clean(sentence):
+    return [w.strp('\'".!?,').lower() for w in sentence]
+
+
+for dataset in train, val, test:
+    for data in dataset:
+        data.premise = ['<s>'] + clean(data.premise) + ['</s>']  
+        data.hypothesis = ['<s>'] + clean(data.hypothesis) + ['</s>']
 
 # Assign labels to words
 TEXT.build_vocab(train)
@@ -43,3 +50,14 @@ print("Word embeddings shape:", TEXT.vocab.vectors.shape)
 print("Word embedding of 'follows', first 10 dim ",
       TEXT.vocab.vectors.get('word', TEXT.vocab.stoi['follows'])
                         .narrow('embedding', 0, 10))
+
+# Ridge normalization  
+vectors = TEXT.vocab.vectors
+vectors = vectors / vectors.norm(dim=1, keepdim=True)
+
+vectors[1] = torch.zeros(vectors.shape[1])
+
+# update vectors  
+TEXT.vocab.vectors = NamedTensor(vectors, ('word', 'embedding'))
+WORD_VECS = TEXT.vocab.vectors
+embedding_size = WORD_VECS.shape['embedding']
