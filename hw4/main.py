@@ -1,5 +1,7 @@
 # PyTorch Implementation of A Decomposable Attention Model
 
+# Greetings from teh RC cluster  
+
 import random
 import torch
 import torchtext
