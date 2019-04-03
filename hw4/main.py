@@ -11,7 +11,7 @@ from namedtensor import ntorch
 
 from models.attention import AttentionModel, NamedAttentionModel
 from models.mixture import MixtureModel
-from data_setup import train_iter, val_iter, test
+from models.setup import train_iter, val_iter, test
 
 
 def get_args():
@@ -166,7 +166,7 @@ def get_predictions(model):
 
 if __name__ == '__main__':
     if args.model == 'attention':
-        model = AttentionModel(
+        model = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
     else:
         raise NotImplementedError
