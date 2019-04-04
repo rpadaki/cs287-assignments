@@ -176,4 +176,3 @@ if __name__ == '__main__':
           log_freq=args.log_freq, save_file=args.save_file)
 
     get_predictions(model)
->>>>>>> 95230423ad157876397a1596bc013da9481d1e85
