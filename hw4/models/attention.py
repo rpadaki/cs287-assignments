@@ -190,6 +190,7 @@ class AttentionInput(ntorch.nn.Module):
 
 class NamedAttentionModel(ntorch.nn.Module):
     def __init__(self, num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False):
+        super().__init__()
         self.input = AttentionInput(
             num_layers, hidden_size, dropout, intra_attn)
         embedding_size = 300
