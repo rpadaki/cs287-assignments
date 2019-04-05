@@ -19,7 +19,7 @@ train, val, test = torchtext.datasets.SNLI.splits(TEXT, LABEL)
 
 
 def clean(sentence):
-    return [w.strp('\'".!?,').lower() for w in sentence]
+    return [w.strip('\'".!?,').lower() for w in sentence]
 
 
 for dataset in train, val, test:
