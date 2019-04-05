@@ -36,9 +36,9 @@ def get_args():
         '--log_freq', type=int, default=10000
     )
     parser.add_argument(
-        '--save_file', default=None
+        '--save_file', default='attn-0.pt'
     )
-    assert args.algo in ['attention', 'ensemble']
+    # assert args.algo in ['attention', 'ensemble']
     args = parser.parse_args()
     args.cuda = torch.cuda.is_available()
     return args
@@ -166,9 +166,10 @@ def get_predictions(model):
 
 
 if __name__ == '__main__':
-    if args.model == 'attention':
+    if args.algo == 'attention':
         model = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
+        model.cuda()
     else:
         raise NotImplementedError
 
