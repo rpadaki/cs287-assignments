@@ -113,7 +113,7 @@ class AttentionModel(nn.Module):
 
 class NamedLogSoftmax(ntorch.nn.Module):
     def __init__(self, dim):
-        super(LogSoftmax, self).__init__()
+        super(NamedLogSoftmax, self).__init__()
         self.dim = dim
 
     def forward(self, x):
@@ -126,19 +126,19 @@ class NamedReLU(ntorch.nn.Module):
 
 
 class MLP(ntorch.nn.Module):
-    def __init__(self, input_dim, input_size, hidden_size, num_layers=2, dropout=0.2):
+    def __init__(self, input_size, hidden_size, num_layers=2, dropout=0.2, input_dim='embedding'):
         super().__init__()
         nn_layers = [ntorch.nn.Dropout(dropout),
                      ntorch.nn.Linear(input_size, hidden_size).spec(
                          input_dim, 'hidden'),
                      NamedReLU()
                      ]
-        for i in range(num_layers - 1):
-            nn_layers.append(ntorch.nn.Dropout(droupout))
+        for i in range(int(num_layers) - 1):
+            nn_layers.append(ntorch.nn.Dropout(dropout))
             nn_layers.append(ntorch.nn.Linear(
                 hidden_size, hidden_size).spec('hidden', 'hidden'))
-            nn_layers.append(NamedRelU())
-        self.nn = torch.nn.Sequential(**nn_layers)
+            nn_layers.append(NamedReLU())
+        self.nn = torch.nn.Sequential(*nn_layers)
 
     def forward(self, x):
         return self.nn(x)
@@ -202,7 +202,7 @@ class NamedAttentionModel(ntorch.nn.Module):
         self.compare = MLP(2 * embedding_size, hidden_size,
                            num_layers, dropout)
         self.aggregate = MLP(2 * hidden_size, hidden_size,
-                             num_layers, dropout, input_dim='hidden')
+                             num_layers, dropout, 'hidden')
 
         self.output = nn.Sequential(ntorch.nn.Linear(
             hidden_size, 4).spec('hidden', 'label'), NamedLogSoftmax(dim='label'))
