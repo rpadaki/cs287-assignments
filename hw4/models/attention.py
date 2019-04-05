@@ -131,7 +131,7 @@ class MLP(ntorch.nn.Module):
         nn_layers = [ntorch.nn.Dropout(dropout),
                      ntorch.nn.Linear(input_size, hidden_size).spec(
                          input_dim, 'hidden'),
-                     NamedReLU()
+                     NamedReLU(),
                      ]
         for i in range(int(num_layers) - 1):
             nn_layers.append(ntorch.nn.Dropout(dropout))
@@ -159,8 +159,8 @@ class AttentionInput(ntorch.nn.Module):
 
     def align(self, s):
         intra_s = self.intra_layers(s)
-        intra_s = intra_s.values.transpose(0, 1)  # formatting
-        batch_seq = torch.bmm(intra_s, instra_s.transpose(1, 2))
+        intra_s_ = intra_s.values.transpose(0, 1)  # formatting
+        batch_seq = torch.bmm(intra_s_, instra_s_.transpose(1, 2))
 
         batches = batch_seq.shape[0]
         seqlen = batch_seq.shape[1]
@@ -183,9 +183,14 @@ class AttentionInput(ntorch.nn.Module):
         s1 = self.embeddings(s1)
         s2 = self.embeddings(s2)
         if self.intra_attn:
-            s1 = self.align(s1)
-            s2 = self.align(s2)
-        return s1, s2
+            s1_ = self.align(s1)
+            s2_ = self.align(s2)
+        else:
+            s1_ = s1
+            s2_ = s2
+        s1_ = s1_.rename('seqlen', 'seqlenA')
+        s2_ = s2_.rename('seqlen', 'seqlenB')
+        return s1_, s2_
 
 
 class NamedAttentionModel(ntorch.nn.Module):
@@ -216,15 +221,15 @@ class NamedAttentionModel(ntorch.nn.Module):
         F_b_ = self.attend(b_)
 
         e = F_a_.dot('hidden', F_b_)
-        alpha = e.softmax(dim='seqlen').dot('seqlen', a_)
-        beta = e.softmax(dim='seqlen').dot('seqlen', b_)
+        alpha = e.softmax(dim='seqlenA').dot('seqlenA', a_)
+        beta = e.softmax(dim='seqlenB').dot('seqlenB', b_)
 
         # Comparison
         v1 = self.compare(ntorch.cat([a_, beta], 'embedding'))
         v2 = self.compare(ntorch.cat([b_, alpha], 'embedding'))
 
         # Aggregation
-        v1 = v1.sum('seqlen')
-        v2 = v2.sum('seqlen')
+        v1 = v1.sum('seqlenA')
+        v2 = v2.sum('seqlenB')
         y_hat = self.output(self.aggregate(ntorch.cat([v1, v2], 'hidden')))
         return y_hat

@@ -58,12 +58,13 @@ def evaluate(model, batches):
     with torch.no_grad():
         loss_fn = ntorch.nn.NLLLoss(reduction='sum').spec('label')
         total_loss = 0
+        total_num = 0
         num_correct = 0
         for batch in batches:
-            log_pros = model.forward(batch.premise, batch.hypothesis)
+            log_probs = model.forward(batch.premise, batch.hypothesis)
             preds = log_probs.argmax('label')
-            total_loss += loss_fn(log_probs, batch_label).item()
-            num_correct += get_correct(preds, batch_label)
+            total_loss += loss_fn(log_probs, batch.label).item()
+            num_correct += get_correct(preds, batch.label)
             total_num += len(batch)
 
         return total_loss / total_num, 100.0 * num_correct / total_num
