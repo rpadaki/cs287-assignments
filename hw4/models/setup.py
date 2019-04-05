@@ -47,19 +47,11 @@ TEXT.vocab.load_vectors(vectors='glove.6B.300d',
 vectors = TEXT.vocab.vectors
 vectors = vectors / vectors.norm(dim=1, keepdim=True)
 vectors = NamedTensor(vectors, ('word', 'embedding'))
-TEXT.vocab.vectors = vectors
+TEXT.vocab.vectors = vectors  # Update vectors
 print("Word embeddings shape:", TEXT.vocab.vectors.shape)
 print("Word embedding of 'follows', first 10 dim ",
       TEXT.vocab.vectors.get('word', TEXT.vocab.stoi['follows'])
                         .narrow('embedding', 0, 10))
 
-# Ridge normalization
-vectors = TEXT.vocab.vectors
-vectors = vectors / vectors.norm(dim=1, keepdim=True)
-
-vectors[1] = torch.zeros(vectors.shape[1])
-
-# update vectors
-TEXT.vocab.vectors = NamedTensor(vectors, ('word', 'embedding'))
 WORD_VECS = TEXT.vocab.vectors
 embedding_size = WORD_VECS.shape['embedding']
