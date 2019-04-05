@@ -33,7 +33,7 @@ def get_args():
         '--grad_clip', type=float, default=5.
     )
     parser.add_argument(
-        '--log_freq', type=int, default=100
+        '--log_freq', type=int, default=10000
     )
     parser.add_argument(
         '--save_file', default=None
@@ -107,7 +107,7 @@ def train(model, num_epochs, learning_rate, weight_decay, grad_clip,
 
                 total_loss += loss.detach().item()
                 total_num += len(batch)
-                num_correct += get_correct(preds, batch_label)
+                num_correct += get_correct(preds, batch.label)
 
                 loss.backward()
                 clip_grad_norm_(model.parameters(), args.grad_clip)
@@ -117,9 +117,9 @@ def train(model, num_epochs, learning_rate, weight_decay, grad_clip,
                 if i % args.log_freq == 0:
                     epoch_end = time.time()
                     print(
-                        'Epoch {} | Batch: {} | Training Loss: {:.1f} | Training Acc: {:.1f} | Time: {:1.f}'
+                        'Epoch {} | Batch Progress: {:.4f} | Training Loss: {:.4f} | Training Acc: {:.4f} | Time: {:.4f}'
                         .format(epoch, i / len(train_iter), total_loss / log_freq, num_correct / total_num,
-                                epoch_end - epoch_start))
+                                float(epoch_end - epoch_start)))
                     total_loss = 0
                     total_num = 0
                     num_correct = 0
@@ -136,7 +136,7 @@ def train(model, num_epochs, learning_rate, weight_decay, grad_clip,
             break
 
     model.load_state_dict(best_params)
-    print('Val Loss: {:.1f} | Val Acc: {:.1f} | Time: {:.1f}'.format(
+    print('Val Loss: {:.4f} | Val Acc: {:.4f} | Time: {:.4f}'.format(
         val_loss, val_acc, time.time() - start_time))
 
 
