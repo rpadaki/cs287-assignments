@@ -135,7 +135,13 @@ def train(model, num_epochs, learning_rate, weight_decay, grad_clip,
                                for k, v in model.named_parameters()}
                 best_val_acc = val_acc
                 torch.save(model.state_dict(), save_file)
-        except:
+
+        except BaseException as e:
+            if not isinstance(e, KeyboardInterrupt):
+                print(f'Got unexpected interrupt: {e!r}')
+                traceback.print_exc()
+
+            print(f'\nStopped training after {epoch} epochs...')
             break
 
     model.load_state_dict(best_params)
@@ -170,7 +176,7 @@ def get_predictions(model):
 
 if __name__ == '__main__':
     if args.algo == 'attention':
-        attn = True if args.intra_attn == 'true'  else False
+        attn = True if args.intra_attn == 'true' else False
         model = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=attn)
         model.cuda()
