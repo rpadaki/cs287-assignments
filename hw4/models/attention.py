@@ -160,7 +160,7 @@ class AttentionInput(ntorch.nn.Module):
     def align(self, s):
         intra_s = self.intra_layers(s)
         intra_s_ = intra_s.values.transpose(0, 1)  # formatting
-        batch_seq = torch.bmm(intra_s_, instra_s_.transpose(1, 2))
+        batch_seq = torch.bmm(intra_s_, intra_s_.transpose(1, 2))
 
         batches = batch_seq.shape[0]
         seqlen = batch_seq.shape[1]
