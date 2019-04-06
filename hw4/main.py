@@ -10,7 +10,7 @@ from torch.nn.utils import clip_grad_norm_
 from namedtensor import ntorch
 
 from models.attention import AttentionModel, NamedAttentionModel
-from models.mixture import MixtureModel
+# from models.mixture import MixtureModel
 from models.setup import train_iter, val_iter, test
 
 
@@ -37,6 +37,9 @@ def get_args():
     )
     parser.add_argument(
         '--save_file', default='attn-0.pt'
+    )
+    parser.add_argument(
+        '--intra_attn', default='true'
     )
     # assert args.algo in ['attention', 'ensemble']
     args = parser.parse_args()
@@ -167,8 +170,9 @@ def get_predictions(model):
 
 if __name__ == '__main__':
     if args.algo == 'attention':
+        attn = True if args.intra_attn == 'true'  else False
         model = NamedAttentionModel(
-            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=attn)
         model.cuda()
     else:
         raise NotImplementedError

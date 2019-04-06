@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 
 from namedtensor import ntorch
-from setup import WORD_VECS, embedding_size
+from .setup import WORD_VECS, embedding_size
 
 
 class encoder(nn.Module):
@@ -123,7 +123,6 @@ class NamedLogSoftmax(ntorch.nn.Module):
 class NamedReLU(ntorch.nn.Module):
     def forward(self, x):
         return x.relu()
-
 
 class MLP(ntorch.nn.Module):
     def __init__(self, input_size, hidden_size, num_layers=2, dropout=0.2, input_dim='embedding'):
