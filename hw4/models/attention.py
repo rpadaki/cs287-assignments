@@ -175,7 +175,7 @@ class AttentionInput(ntorch.nn.Module):
         align_matrix_b = self.bias[align_matrix + self.cap]
         weights = torch.softmax(align_matrix_b + batch_seq, dim=2)
         s_ = torch.matmul(weights, s.values.transpose(0, 1))
-        s_ = ntorch.tensor(s, ('batch', 'seqlen', 'embedding'))
+        s_ = ntorch.tensor(s_, ('batch', 'seqlen', 'embedding'))
 
         return ntorch.cat([s, s_], 'embedding')
 
