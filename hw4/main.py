@@ -39,7 +39,7 @@ def get_args():
         '--save_file', default='attn-0.pt'
     )
     parser.add_argument(
-        '--intra_attn', default='true'
+        '--intra_attn', default='false'
     )
     # assert args.algo in ['attention', 'ensemble']
     args = parser.parse_args()
