@@ -53,7 +53,7 @@ device = torch.device("cuda:0" if args.cuda else "cpu")
 
 
 def get_correct(preds, labels):
-    return (preds == labels).sum().item()
+    return (labels == preds).sum().item()
 
 
 def evaluate(model, batches):
@@ -163,14 +163,14 @@ def get_predictions(model):
             batch_preds = model(
                 batch.premise, batch.hypothesis).argmax('label')
             preds += batch_preds.tolist()
-            num_correct += get_correct(preds, batch.label)
+            num_correct += get_correct(batch_preds, batch.label)
             total_num += len(batch_preds)
 
     print('Test Acc: {:1f}%'.format(100. * num_correct / total_num))
 
     with open('predictions.txt', 'w') as f:
         f.write('Id,Category\n')
-        for i, pred in enumerate(predictions):
+        for i, pred in enumerate(preds):
             f.write('{},{}\n'.format(str(i), str(pred)))
 
 
