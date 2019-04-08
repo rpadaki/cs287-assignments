@@ -36,7 +36,7 @@ def get_args():
         '--log_freq', type=int, default=10000
     )
     parser.add_argument(
-        '--save_file', default='attn-0.pt'
+        '--save_file', default='./trained_models/attn-0.pt'
     )
     parser.add_argument(
         '--intra_attn', default='false'
@@ -76,14 +76,14 @@ def evaluate(model, batches):
         return total_loss / total_num, 100.0 * num_correct / total_num
 
 
-def train(model, num_epochs, learning_rate, weight_decay, grad_clip,
+def train(model, num_epochs, lr, weight_decay, grad_clip,
           log_freq, save_file):
     if os.path.exists(save_file):
         model.load_state_dict(torch.load(save_file))
 
     val_loss, val_acc = evaluate(model, val_iter)
     opt = torch.optim.Adam(model.parameters(),
-                           lr=learning_rate, weight_decay=weight_decay)
+                           lr=lr, weight_decay=weight_decay)
     loss_fn = ntorch.nn.NLLLoss().spec('label')
 
     # Save best performing models
@@ -152,6 +152,75 @@ def train(model, num_epochs, learning_rate, weight_decay, grad_clip,
         val_loss, val_acc, time.time() - start_time))
 
 
+def train_vae(model, num_epochs, lr=1e-3, weight_decay, grad_clip,
+              log_freq, save_file):
+    """Function to train VAEs. Could probably refactor with enough overlap to the above"""
+
+    if os.path.exists(save_file):
+        model.load_state_dict(torch.load(save_file))
+
+    val_loss, val_acc = evaluate(model, val_iter)
+
+    opt = torch.optim.Adam(model.parameters(), lr=lr,
+                           weight_decay=weight_decay)
+
+    # Save best performing models
+    best_params = {k: v.detach().clone() for k, v in model.named_parameters()}
+    best_val_acc = val_acc
+
+    start_time = time.time()
+
+    for epoch in range(num_epochs):
+        total_loss = 0
+
+        try:  # Actually train
+            model.train()
+            for i, batch in enumerate(tqdm(train_iter), 1):
+                epoch_start = time.time()
+                opt.zero_grad()
+
+                loss, elbo = model.get_loss(batch.premise, batch.hypothesis)
+
+                try:
+                    total_loss += elbow.detach().item()
+                except:
+                    total_loss += elbow.item()
+
+                loss.backward()
+                clip_grad_norm_(model.parameters(), args.grad_clip)
+                opt.step()
+
+                # Logging
+                if i % args.log_freq == 0:
+                    epoch_end = time.time()
+                    print(
+                        'Epoch {} | Batch Progress: {:.4f} | Training Loss: {:.4f} | Time: {:.4f}'
+                        .format(epoch, i / len(train_iter), total_loss / log_freq,
+                                float(epoch_end - epoch_start)))
+                    total_loss = 0
+
+            # Validation
+            model.eval()
+            val_loss, val_acc = evaluate(model, val_iter)
+            if val_acc > best_val_acc:
+                best_params = {k: v.detach().clone()
+                               for k, v in model.named_parameters()}
+                best_val_acc = val_acc
+                torch.save(model.state_dict(), save_file)
+
+        except BaseException as e:
+            if not isinstance(e, KeyboardInterrupt):
+                print(f'Got unexpected interrupt: {e!r}')
+                traceback.print_exc()
+
+            print(f'\nStopped training after {epoch} epochs...')
+            break
+
+    model.load_state_dict(best_params)
+    print('Val Loss: {:.4f} | Val Acc: {:.4f} | Time: {:.4f}'.format(
+        val_loss, val_acc, time.time() - start_time))
+
+
 def get_predictions(model):
     test_iter = torchtext.data.BucketIterator(
         test, train=False, batch_size=10, device=device)
@@ -184,7 +253,7 @@ if __name__ == '__main__':
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=attn)
         model.cuda()
 
-        train(model, num_epochs=args.epochs, learning_rate=args.lr,
+        train(model, num_epochs=args.epochs, lr=args.lr,
               weight_decay=args.weight_decay, grad_clip=args.grad_clip,
               log_freq=args.log_freq, save_file=args.save_file)
 
@@ -201,11 +270,26 @@ if __name__ == '__main__':
 
         model = LatentMixtureModel(m1, m2, m3, m4)
         model.cuda()
-        train(model, num_epochs=args.epochs, learning_rate=args.lr,
+        train(model, num_epochs=args.epochs, lr=args.lr,
               weight_decay=args.weight_decay, grad_clip=args.grad_clip,
               log_freq=args.log_freq, save_file=args.save_file)
 
     else:  # assume VAE training
-        raise NotImplementedError
+        num_models = 3
+        models = [
+            AttendNN(num_layers=2, hidden_size=200,
+                     dropout=0.2, intra_attn=False)
+            for i in range(num_models)
+        ]
+        q = AttendNN(
+            num_layers=2, hidden_size=200, dropout=0.2, use_labels=True,
+            num_labels=num_models, intra_attn=False
+        )
+        model = VariationalAutoencoder(
+            q, *models, sample_size=1, kl_weight=0.33, elbo_type='exact')
+
+        train_vae(  # wd = 0, gc = 20
+            model, lr=1e-3, weight_decay=args.weight_decay, grad_clip=args.grad_clip,
+            log_freq=args.log_freq, save_file=args.save_file, num_epochs=args.epochs)
 
     get_predictions(model)
