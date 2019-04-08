@@ -282,7 +282,7 @@ if __name__ == '__main__':
             for i in range(num_models)
         ]
         q = NamedAttentionModel(
-            num_layers=2, hidden_size=200, dropout=0.2, use_labels=True,
+            num_layers=2, hidden_size=200, dropout=0.2,
             num_labels=num_models, intra_attn=False
         )
         model = VariationalAutoencoder(
