@@ -3,6 +3,7 @@ import os
 import time
 import argparse
 from tqdm import tqdm
+import traceback
 
 import torch
 import torchtext
@@ -179,7 +180,8 @@ def train_vae(model, num_epochs, lr, weight_decay, grad_clip,
                 epoch_start = time.time()
                 opt.zero_grad()
 
-                loss, elbo = model.get_loss(batch.premise, batch.hypothesis)
+                loss, elbo = model.get_loss(
+                    batch.premise, batch.hypothesis, batch.label)
 
                 try:
                     total_loss += elbow.detach().item()
@@ -210,7 +212,7 @@ def train_vae(model, num_epochs, lr, weight_decay, grad_clip,
 
         except BaseException as e:
             if not isinstance(e, KeyboardInterrupt):
-                print(f'Got unexpected interrupt: {e!r}')
+                print('Unexpected interrupt: {}'.format(e))
                 traceback.print_exc()
 
             print(f'\nStopped training after {epoch} epochs...')
