@@ -27,7 +27,7 @@ class LatentMixtureModel(ntorch.nn.Module):
 class VAE(ntorch.nn.Module):
     """VAE to train ensemble mixture of models"""
 
-    def __init__(self, q_inference, *models, kl_weight=0.5):
+    def __init__(self, q_inference, *models, num_samples, kl_weight=0.5):
         super().__init__()
         self.q = q_inference
         self.kl_weight = kl_weight
@@ -74,5 +74,5 @@ class VAE(ntorch.nn.Module):
     def get_loss(self, premise, hypothesis, label):
         return self.reinforce(premise, hypothesis, label)
 
-    def forward(self, premise, hypothesis, label):
-        return self.infer(premise, hypothesis)
+    def forward(self, premise, hypothesis, label=None):
+        return self.decode(premise, hypothesis)
