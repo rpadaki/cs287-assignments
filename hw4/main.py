@@ -184,9 +184,9 @@ def train_vae(model, num_epochs, lr=1e-3, weight_decay, grad_clip,
                     batch.premise, batch.hypothesis, batch.label)
 
                 try:
-                    total_loss += elbow.detach().item()
+                    total_loss += elbo.detach().item()
                 except:
-                    total_loss += elbow.item()
+                    total_loss += elbo.item()
 
                 loss.backward()
                 clip_grad_norm_(model.parameters(), args.grad_clip)

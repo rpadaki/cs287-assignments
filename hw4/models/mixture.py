@@ -41,7 +41,8 @@ class VAE(ntorch.nn.Module):
         q = self.q(premise, hypothesis, label).rename('label', 'latent')
         latent_dist = nds.Categorical(logits=q, dim_logit='latent')
 
-        one_hot = torch.eye(4).index_select(0, label.values)
+        one_hot = torch.eye(4, out=torch.cuda.FloatTensor()
+                            ).index_select(0, label.values)
         one_hot = ntorch.tensor(one_hot, names=('batch', 'label'))
 
         # Calculate p(y | a, b, c) across all models K
@@ -57,7 +58,7 @@ class VAE(ntorch.nn.Module):
         prior = nds.Categorical(logits=ones, dim_logit='latent')
 
         KLD = nds.kl_divergence(latent_dist, prior) * self.kl_weight
-        loss = kl.mean() - surrogate.mean()  # -(surrogate.mean() - kl.mean())
+        loss = KLD.mean() - surrogate._tensor.mean()  # -(surrogate.mean() - kl.mean())
         return loss, loss.detach()
 
     def decode(self, premise, hypothesis):
