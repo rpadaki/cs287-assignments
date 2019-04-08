@@ -283,8 +283,7 @@ if __name__ == '__main__':
         ]
         q = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
-        model = VAE(q, *models, sample_size=1,
-                    kl_weight=0.33, elbo_type='exact')
+        model = VAE(q, *models, num_samples=1, kl_weight=0.33)
 
         train_vae(  # wd = 0, gc = 20
             model, lr=1e-3, weight_decay=args.weight_decay, grad_clip=args.grad_clip,
