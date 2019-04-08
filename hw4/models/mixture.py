@@ -2,6 +2,8 @@
 
 import torch
 from namedtensor import ntorch
+from ntorch.distributions import *
+from collections import defaultdict
 
 
 class LatentMixtureModel(ntorch.nn.Module):
@@ -21,32 +23,55 @@ class LatentMixtureModel(ntorch.nn.Module):
         return sum(preds) / len(self.models)
 
 
-class MixtureModel(ntorch.nn.Module):
-    def __init__(self, *models, fine_tune=False):
+class VAE(ntorch.nn.Module):
+    """VAE to train ensemble mixture of models"""
+
+    def __init__(self, q_inference, *models, kl_weight=0.5):
         super().__init__()
+        self.q = q_inference
+        self.kl_weight = kl_weight
+        self.num_samples = num_samples
 
-        self.fine_tune = fine_tune
-        if fine_tune:
-            self.models = ntorch.nn.ModuleList(models)
-        else:
-            self.models = [m.eval() for m in models]
-            self.cache = {}
-        self.weights = torch.nn.Parameter(torch.rand(len(self.models)))
+        self.models = ntorch.nn.ModuleList(models)
+        self.K = len(self.models)
 
-    def f(self, model, premise, hypothesis):
-        key = (model, premise.values, hypothesis.values)
-        if key in self.cache:
-            return self.cache[key]
-        self.cache[key] = model(premise, hypothesis)
-        return self.cache[key]
+    def reinforce(self, premise, hypothesis, label):
+        # REINFORCE
+        q = self.q(premise, hypothesis, label).rename('label', 'latent')
+        latent_dist = Categorial(logits=q, dim_logit='latent')
 
-    def forward(self, premise, hypothesis):
-        if self.fine_tune:
-            preds = [model(premise, hypothesis) for model in self.models]
-        else:
-            with torch.no_grad():
-                preds = [self.f(model, premise, hypothesis)
-                         for model in self.models]
+        one_hot = torch.eye(4).index_select(0, label.values)
+        one_hot = ntorch.tensor(one_hot, names=('batch', 'label'))
 
-        softmax = self.weights.softmax(dim=0)
-        return sum(pred * softmax[c] for c, pred in enumerate(preds))
+        # Calculate p(y | a, b, c) across all models K
+        surrogate = 0
+        q = q.exp()
+        for c in range(len(self.models)):
+            log_probs = self.models[c](premise, hypothesis)
+            model_probs = q.get('latent', c)
+            surrogate += (log_probs * one_hot).sum('label') * model_probs
+
+        # KL regularization
+        ones = ntorch.ones(self.K, names='latent').log_softmax(dim='latent')
+        prior = Categorical(logits=ones, dim_logit='latent')
+
+        KLD = kl_divergence(latent_dist, prior) * self.kl_weight
+        loss = kl.mean() - surrogate.mean()  # -(surrogate.mean() - kl.mean())
+        return loss, loss.detach()
+
+    def decode(self, premise, hypothesis):
+        label = ntorch.ones(premise.shape['batch'], names=('batch',))
+        predictions = 0
+        for i in range(1, self.num_samples+1):
+            q = self.q(premise, hypothesis, label *
+                       i).rename('label', 'latent').exp()
+            for c in range(len(self.models)):
+                log_probs = self.models[c](premise, hypothesis)
+                preds += log_probs * q.get('latent', c) / len(self.models)
+        return predictions / self.num_samples
+
+    def get_loss(self, premise, hypothesis, label):
+        return self.reinforce(premise, hypothesis, label)
+
+    def forward(self, premise, hypothesis, label):
+        return self.infer(premise, hypothesis)
