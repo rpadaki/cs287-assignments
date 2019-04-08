@@ -152,7 +152,7 @@ def train(model, num_epochs, lr, weight_decay, grad_clip,
         val_loss, val_acc, time.time() - start_time))
 
 
-def train_vae(model, num_epochs, lr=1e-3, weight_decay, grad_clip,
+def train_vae(model, num_epochs, lr, weight_decay, grad_clip,
               log_freq, save_file):
     """Function to train VAEs. Could probably refactor with enough overlap to the above"""
 

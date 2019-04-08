@@ -2,7 +2,7 @@
 
 import torch
 from namedtensor import ntorch
-from ntorch.distributions import *
+ds = ntorch.distributions
 from collections import defaultdict
 
 
@@ -38,7 +38,7 @@ class VAE(ntorch.nn.Module):
     def reinforce(self, premise, hypothesis, label):
         # REINFORCE
         q = self.q(premise, hypothesis, label).rename('label', 'latent')
-        latent_dist = Categorial(logits=q, dim_logit='latent')
+        latent_dist = ds.Categorical(logits=q, dim_logit='latent')
 
         one_hot = torch.eye(4).index_select(0, label.values)
         one_hot = ntorch.tensor(one_hot, names=('batch', 'label'))
@@ -53,9 +53,9 @@ class VAE(ntorch.nn.Module):
 
         # KL regularization
         ones = ntorch.ones(self.K, names='latent').log_softmax(dim='latent')
-        prior = Categorical(logits=ones, dim_logit='latent')
+        prior = ds.Categorical(logits=ones, dim_logit='latent')
 
-        KLD = kl_divergence(latent_dist, prior) * self.kl_weight
+        KLD = ds.kl_divergence(latent_dist, prior) * self.kl_weight
         loss = kl.mean() - surrogate.mean()  # -(surrogate.mean() - kl.mean())
         return loss, loss.detach()
 
