@@ -244,6 +244,6 @@ class NamedAttentionModel(ntorch.nn.Module):
             y = ntorch.tensor(labels.values.unsqueeze(1),
                               names=('batch', 'hidden'))
             output = self.labelled_output(
-                ntorch.cat([out, y.float()], 'hidden'))
+                ntorch.cat([output, y.float()], 'hidden'))
         y_hat = self.output(output)
         return y_hat
