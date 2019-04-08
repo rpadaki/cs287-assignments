@@ -277,11 +277,11 @@ if __name__ == '__main__':
     else:  # assume VAE training
         num_models = 3
         models = [
-            AttendNN(num_layers=2, hidden_size=200,
-                     dropout=0.2, intra_attn=False)
+            NamedAttentionModel(num_layers=2, hidden_size=200,
+                                dropout=0.2, intra_attn=False)
             for i in range(num_models)
         ]
-        q = AttendNN(
+        q = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, use_labels=True,
             num_labels=num_models, intra_attn=False
         )
