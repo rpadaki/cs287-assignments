@@ -272,6 +272,21 @@ if __name__ == '__main__':
               log_freq=args.log_freq, save_file=args.save_file)
 
     else:  # assume VAE training
-        raise NotImplementedError
+        num_models = 3
+        models = [
+            AttendNN(num_layers=2, hidden_size=200,
+                     dropout=0.2, intra_attn=False)
+            for i in range(num_models)
+        ]
+        q = AttendNN(
+            num_layers=2, hidden_size=200, dropout=0.2, use_labels=True,
+            num_labels=num_models, intra_attn=False
+        )
+        model = VariationalAutoencoder(
+            q, *models, sample_size=1, kl_weight=0.33, elbo_type='exact')
+
+        train_vae(  # wd = 0, gc = 20
+            model, lr=1e-3, weight_decay=args.weight_decay, grad_clip=args.grad_clip,
+            log_freq=args.log_freq, save_file=args.save_file, num_epochs=args.epochs)
 
     get_predictions(model)
