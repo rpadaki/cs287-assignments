@@ -124,6 +124,7 @@ class NamedReLU(ntorch.nn.Module):
     def forward(self, x):
         return x.relu()
 
+
 class MLP(ntorch.nn.Module):
     def __init__(self, input_size, hidden_size, num_layers=2, dropout=0.2, input_dim='embedding'):
         super().__init__()
@@ -193,8 +194,10 @@ class AttentionInput(ntorch.nn.Module):
 
 
 class NamedAttentionModel(ntorch.nn.Module):
-    def __init__(self, num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False):
+    # Remember len(LABEL.vocab) = 4
+    def __init__(self, num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False, labels=False):
         super().__init__()
+        self.use_labels = labels
         self.input = AttentionInput(
             num_layers, hidden_size, dropout, intra_attn)
         embedding_size = 300
@@ -211,7 +214,11 @@ class NamedAttentionModel(ntorch.nn.Module):
         self.output = nn.Sequential(ntorch.nn.Linear(
             hidden_size, 4).spec('hidden', 'label'), NamedLogSoftmax(dim='label'))
 
-    def forward(self, sent1, sent2):
+        if self.use_labels:
+            self.labelled_output = MLP(
+                hidden_size + 1, hidden_size, num_layers, dropout, input_dim='hidden')
+
+    def forward(self, sent1, sent2, labels=None):
         """Notation straight from paper this time"""
         a_, b_ = self.input(sent1, sent2)
 
@@ -230,5 +237,13 @@ class NamedAttentionModel(ntorch.nn.Module):
         # Aggregation
         v1 = v1.sum('seqlenA')
         v2 = v2.sum('seqlenB')
-        y_hat = self.output(self.aggregate(ntorch.cat([v1, v2], 'hidden')))
+        output = self.aggregate(ntorch.cat([v1, v2], 'hidden'))
+
+        if self.use_labels:
+            assert labels is not None
+            y = ntorch.tensor(labels.values.unsqueeze(1),
+                              names=('batch', 'hidden'))
+            output = self.labelled_output(
+                ntorch.cat([out, y.float()], 'hidden'))
+        y_hat = self.output(output)
         return y_hat

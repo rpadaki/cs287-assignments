@@ -66,6 +66,8 @@ class VAE(ntorch.nn.Module):
         for i in range(1, self.num_samples+1):
             q = self.q(premise, hypothesis, label *
                        i).rename('label', 'latent').exp()
+            q = self.q(premise, hypothesis, label *
+                       i).rename('label', 'latent').exp()
             for c in range(len(self.models)):
                 log_probs = self.models[c](premise, hypothesis)
                 preds += log_probs * q.get('latent', c) / len(self.models)

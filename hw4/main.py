@@ -275,14 +275,14 @@ if __name__ == '__main__':
               log_freq=args.log_freq, save_file=args.save_file)
 
     else:  # assume VAE training
-        num_models = 3
+        num_models = 4
         models = [
             NamedAttentionModel(num_layers=2, hidden_size=200,
                                 dropout=0.2, intra_attn=False)
             for i in range(num_models)
         ]
         q = NamedAttentionModel(
-            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False, labels=True)
         model = VAE(q, *models, num_samples=1, kl_weight=0.33)
 
         train_vae(  # wd = 0, gc = 20
@@ -290,3 +290,7 @@ if __name__ == '__main__':
             log_freq=args.log_freq, save_file=args.save_file, num_epochs=args.epochs)
 
     get_predictions(model)
+
+
+# Reference script command
+# python main.py --algo 'vae' --pred_suffix '_vae-0' --grad_clip 20. --save_file './trained_models/vae-0.pt'
