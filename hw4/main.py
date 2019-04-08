@@ -284,7 +284,7 @@ if __name__ == '__main__':
         q = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False, labels=True)
         model = VAE(q, *models, num_samples=1, kl_weight=0.33)
-
+        model.cuda()
         train_vae(  # wd = 0, gc = 20
             model, lr=1e-3, weight_decay=args.weight_decay, grad_clip=args.grad_clip,
             log_freq=args.log_freq, save_file=args.save_file, num_epochs=args.epochs)

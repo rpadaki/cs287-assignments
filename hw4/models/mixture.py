@@ -62,7 +62,7 @@ class VAE(ntorch.nn.Module):
 
     def decode(self, premise, hypothesis):
         label = ntorch.ones(premise.shape['batch'], names=('batch',))
-        predictions = 0
+        preds = 0
         for i in range(1, self.num_samples+1):
             q = self.q(premise, hypothesis, label *
                        i).rename('label', 'latent').exp()
@@ -71,7 +71,7 @@ class VAE(ntorch.nn.Module):
             for c in range(len(self.models)):
                 log_probs = self.models[c](premise, hypothesis)
                 preds += log_probs * q.get('latent', c) / len(self.models)
-        return predictions / self.num_samples
+        return preds / self.num_samples
 
     def get_loss(self, premise, hypothesis, label):
         return self.reinforce(premise, hypothesis, label)

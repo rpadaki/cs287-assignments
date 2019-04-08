@@ -242,8 +242,8 @@ class NamedAttentionModel(ntorch.nn.Module):
         if self.use_labels:
             assert labels is not None
             y = ntorch.tensor(labels.values.unsqueeze(1),
-                              names=('batch', 'hidden'))
+                              names=('batch', 'hidden')).cuda()
             output = self.labelled_output(
-                ntorch.cat([out, y.float()], 'hidden'))
+                ntorch.cat([output, y.float()], 'hidden'))
         y_hat = self.output(output)
         return y_hat
