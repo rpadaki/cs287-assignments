@@ -21,7 +21,7 @@ def get_args():
         '--algo', default='attention'
     )
     parser.add_argument(
-        '--epochs', type=int, default=100
+        '--epochs', type=int, default=15
     )
     parser.add_argument(
         '--lr', type=float, default=1e-4
@@ -40,6 +40,9 @@ def get_args():
     )
     parser.add_argument(
         '--intra_attn', default='false'
+    )
+    parser.add_argument(
+        '--pred_suffix', default=''
     )
     # assert args.algo in ['attention', 'ensemble', 'vae']
     args = parser.parse_args()
@@ -168,7 +171,7 @@ def get_predictions(model):
 
     print('Test Acc: {:1f}%'.format(100. * num_correct / total_num))
 
-    with open('predictions-attn.txt', 'w') as f:
+    with open('predictions{}.txt'.format(args.pred_suffix), 'w') as f:
         f.write('Id,Category\n')
         for i, pred in enumerate(preds):
             f.write('{},{}\n'.format(str(i), str(pred)))
@@ -196,7 +199,7 @@ if __name__ == '__main__':
         m4 = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
 
-        model = LatentMixtureModel(m1, m2, m3, m4, **kwargs)
+        model = LatentMixtureModel(m1, m2, m3, m4)
         model.cuda()
         train(model, num_epochs=args.epochs, learning_rate=args.lr,
               weight_decay=args.weight_decay, grad_clip=args.grad_clip,
