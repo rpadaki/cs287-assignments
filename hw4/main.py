@@ -168,7 +168,7 @@ def get_predictions(model):
 
     print('Test Acc: {:1f}%'.format(100. * num_correct / total_num))
 
-    with open('predictions.txt', 'w') as f:
+    with open('predictions-attn.txt', 'w') as f:
         f.write('Id,Category\n')
         for i, pred in enumerate(preds):
             f.write('{},{}\n'.format(str(i), str(pred)))
