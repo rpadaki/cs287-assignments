@@ -10,7 +10,7 @@ from torch.nn.utils import clip_grad_norm_
 from namedtensor import ntorch
 
 from models.attention import AttentionModel, NamedAttentionModel
-# from models.mixture import MixtureModel
+from models.mixture import LatentMixtureModel
 from models.setup import train_iter, val_iter, test
 
 
@@ -41,7 +41,7 @@ def get_args():
     parser.add_argument(
         '--intra_attn', default='false'
     )
-    # assert args.algo in ['attention', 'ensemble']
+    # assert args.algo in ['attention', 'ensemble', 'vae']
     args = parser.parse_args()
     args.cuda = torch.cuda.is_available()
     return args
@@ -180,11 +180,28 @@ if __name__ == '__main__':
         model = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=attn)
         model.cuda()
-    else:
-        raise NotImplementedError
 
-    train(model, num_epochs=args.epochs, learning_rate=args.lr,
-          weight_decay=args.weight_decay, grad_clip=args.grad_clip,
-          log_freq=args.log_freq, save_file=args.save_file)
+        train(model, num_epochs=args.epochs, learning_rate=args.lr,
+              weight_decay=args.weight_decay, grad_clip=args.grad_clip,
+              log_freq=args.log_freq, save_file=args.save_file)
+
+    elif args.algo == 'ensemble':
+        # Experiment with different setups - default might be 2 intra, 2 regular
+        m1 = NamedAttentionModel(
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=True)
+        m2 = NamedAttentionModel(
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=True)
+        m3 = NamedAttentionModel(
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
+        m4 = NamedAttentionModel(
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
+
+        model = LatentMixtureModel(m1, m2, m3, m4, **kwargs)
+        train(model, num_epochs=args.epochs, learning_rate=args.lr,
+              weight_decay=args.weight_decay, grad_clip=args.grad_clip,
+              log_freq=args.log_freq, save_file=args.save_file)
+
+    else:  # assume VAE training
+        raise NotImplementedError
 
     get_predictions(model)
