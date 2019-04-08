@@ -186,7 +186,7 @@ if __name__ == '__main__':
               log_freq=args.log_freq, save_file=args.save_file)
 
     elif args.algo == 'ensemble':
-        # Experiment with different setups - default might be 2 intra, 2 regular
+        # Experiment with different setups - default might be 2 intra, 2 reg attn
         m1 = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=True)
         m2 = NamedAttentionModel(
@@ -197,6 +197,7 @@ if __name__ == '__main__':
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
 
         model = LatentMixtureModel(m1, m2, m3, m4, **kwargs)
+        model.cuda()
         train(model, num_epochs=args.epochs, learning_rate=args.lr,
               weight_decay=args.weight_decay, grad_clip=args.grad_clip,
               log_freq=args.log_freq, save_file=args.save_file)
