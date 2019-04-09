@@ -12,7 +12,7 @@ from namedtensor import ntorch
 
 from models.attention import AttentionModel, NamedAttentionModel
 from models.mixture import LatentMixtureModel, VAE
-from models.setup import train_iter, val_iter, test
+from models.setup import train_iter, val_iter, test, TEXT
 
 
 def get_args():
@@ -48,6 +48,12 @@ def get_args():
     parser.add_argument(
         '--pred_suffix', default=''
     )
+    parser.add_argument(
+        '--visualize_freq', type=int, default=10000
+    )
+    parser.add_argument(
+        '--save_img', default='attn-0'
+    )
     # assert args.algo in ['attention', 'ensemble', 'vae']
     args = parser.parse_args()
     args.cuda = torch.cuda.is_available()
@@ -63,6 +69,28 @@ def get_correct(preds, labels):
     return (labels == preds).sum().item()
 
 
+# Code from last pset and modified
+def visualize_attn(self, src_sample, pred_sample,
+                   trg_label=None, save_name=None):
+    # attn = decoder_attn_sample.cpu().data.numpy()
+    src_words = np.array(list(map(lambda x: TEXT.vocab.itos[x],
+                                  src_sample.cpu().data.numpy())))
+    pred_words = np.array(list(map(lambda x: TEXT.vocab.itos[x],
+                                   pred_sample.cpu().data.numpy())))
+
+    # Visualizations
+    fig, ax = plt.subplots()
+    ax.imshow(attn, cmap='blue')
+    plt.xticks(range(len(src_words)), src_words, rotation='vertical')
+    plt.yticks(range(len(pred_words)), pred_words)
+
+    ax.xaxis.tick_top()
+
+    if not save_name is None:
+        plt.savefig(save_name)
+    # plt.show()
+
+
 def evaluate(model, batches):
     model.eval()
     with torch.no_grad():
@@ -70,12 +98,17 @@ def evaluate(model, batches):
         total_loss = 0
         total_num = 0
         num_correct = 0
-        for batch in batches:
-            log_probs = model.forward(batch.premise, batch.hypothesis)
+        for i, batch in enumerate(batches):
+            log_probs, attn_a, attn_b = model.forward(
+                batch.premise, batch.hypothesis)
             preds = log_probs.argmax('label')
             total_loss += loss_fn(log_probs, batch.label).item()
             num_correct += get_correct(preds, batch.label)
             total_num += len(batch)
+
+            if args.visualize_freq and i % self.visualize_freq == 0:
+                fname = './img/' + args.save_img
+                visualize_attn(attn_a, attn_b, fname)
 
         return total_loss / total_num, 100.0 * num_correct / total_num
 
@@ -111,7 +144,8 @@ def train(model, num_epochs, lr, weight_decay, grad_clip,
             for i, batch in enumerate(tqdm(train_iter), 1):
                 epoch_start = time.time()
                 opt.zero_grad()
-                log_probs = model.forward(batch.premise, batch.hypothesis)
+                log_probs, attn_a, attn_b = model.forward(
+                    batch.premise, batch.hypothesis)
                 preds = log_probs.detach().argmax('label')
                 loss = loss_fn(log_probs, batch.label)
 
