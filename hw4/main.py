@@ -184,9 +184,9 @@ def train_vae(model, num_epochs, lr, weight_decay, grad_clip,
                     batch.premise, batch.hypothesis, batch.label)
 
                 try:
-                    total_loss += elbow.detach().item()
+                    total_loss += elbo.detach().item()
                 except:
-                    total_loss += elbow.item()
+                    total_loss += elbo.item()
 
                 loss.backward()
                 clip_grad_norm_(model.parameters(), args.grad_clip)
@@ -249,6 +249,9 @@ def get_predictions(model):
 
 
 if __name__ == '__main__':
+
+    torch.set_default_tensor_type(torch.cuda.FloatTensor)
+
     if args.algo == 'attention':
         attn = True if args.intra_attn == 'true' else False
         model = NamedAttentionModel(
