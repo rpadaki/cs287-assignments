@@ -259,6 +259,39 @@ def train_vae(model, num_epochs, lr=1e-3, weight_decay, grad_clip,
     print('Val Loss: {:.4f} | Val Acc: {:.4f} | Time: {:.4f}'.format(
         val_loss, val_acc, time.time() - start_time))
 
+def visualize_attn_1(attn_model, sent_1, sent_2, labels=None, save_name=None):
+    preds, attn_1, attn_2 = attn_model.forward(sent_1, sent_2, labels)
+    sent_1_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_1.cpu().data.numpy()))
+    sent_2_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_2.cpu().data.numpy()))
+
+    fig, ax = plt.subplots()
+    ax.imshow(attn_1, cmap='gray')
+    plt.xticks(range(len(sent_1_words)), sent_1_words, rotation='vertical')
+    plt.yticks(range(len(sent_2_words)), sent_2_words)
+
+    ax.xaxis.tick_top()
+
+    if not save_name is None:
+        plt.savefig(save_name)
+    plt.show()
+
+def visualize_attn_2(attn_model, sent_1, sent_2, labels=None, save_name=None):
+    preds, attn_1, attn_2 = attn_model.forward(sent_1, sent_2, labels)
+    sent_1_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_1.cpu().data.numpy()))
+    sent_2_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_2.cpu().data.numpy()))
+
+    fig, ax = plt.subplots()
+    ax.imshow(attn_2, cmap='gray')
+    plt.xticks(range(len(sent_2_words)), sent_2_words, rotation='vertical')
+    plt.yticks(range(len(sent_1_words)), sent_1_words)
+
+    ax.xaxis.tick_top()
+
+    if not save_name is None:
+        plt.savefig(save_name)
+    plt.show()
+
+
 
 def get_predictions(model):
     test_iter = torchtext.data.BucketIterator(
