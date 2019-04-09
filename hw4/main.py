@@ -34,6 +34,9 @@ def get_args():
         '--grad_clip', type=float, default=5.
     )
     parser.add_argument(
+        '--elbo', default='reinforce'
+    )
+    parser.add_argument(
         '--log_freq', type=int, default=10000
     )
     parser.add_argument(
@@ -288,7 +291,8 @@ if __name__ == '__main__':
         ]
         q = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False, labels=True)
-        model = VAE(q, *models, num_samples=1, kl_weight=0.33)
+        model = VAE(q, *models, num_samples=1,
+                    kl_weight=0.33, elbo_method=args.elbo)
         model.cuda()
         train_vae(  # wd = 0, gc = 20
             model, lr=1e-3, weight_decay=args.weight_decay, grad_clip=args.grad_clip,
