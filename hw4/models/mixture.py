@@ -71,12 +71,12 @@ class VAE(ntorch.nn.Module):
             #     batch_p = ntorch.
             batch_p = ntorch.stack([p for _, p, _ in items], 'batch')
             batch_h = ntorch.stack([h for _, _, h in items], 'batch')
-            batch_i = [i for i, _m _ in items]
+            batch_i = [i for i, _, _ in items]
 
             # Evaluate model per batch, then update
             preds = self.models[i](batch_p, batch_h)
-            for i, log_probs in zip(ids, preds.unbind('batch')):
-                res[self.sample_size * i + counts[i]
+            for i, log_probs in zip(batch_i, preds.unbind('batch')):
+                res[self.num_samples * i + counts[i]
                     ] = log_probs.values[correct[i]]
                 counts[i] += 1
 
@@ -92,7 +92,7 @@ class VAE(ntorch.nn.Module):
         KLD = nds.kl_divergence(latent_dist, prior) * self.kl_weight
 
         loss = (KLD - surrogate._tensor).mean()  # -(surrogate = kl)
-        elbo = (KLD.detach() - res.detach().mean('sample')).mean()
+        elbo = (KLD.detach() - res._tensor.detach().mean('sample')).mean()
         return loss, elbo
 
     def exact(self, premise, hypothesis, label):
