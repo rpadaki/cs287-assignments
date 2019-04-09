@@ -92,7 +92,7 @@ class VAE(ntorch.nn.Module):
         KLD = nds.kl_divergence(latent_dist, prior) * self.kl_weight
 
         loss = (KLD - surrogate._tensor).mean()  # -(surrogate = kl)
-        elbo = (KLD.detach() - res._tensor.detach().mean('sample')).mean()
+        elbo = (KLD.detach() - res.detach().mean('sample')._tensor).mean()
         return loss, elbo
 
     def exact(self, premise, hypothesis, label):

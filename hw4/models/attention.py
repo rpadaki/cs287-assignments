@@ -246,4 +246,4 @@ class NamedAttentionModel(ntorch.nn.Module):
             output = self.labelled_output(
                 ntorch.cat([output, y.float()], 'hidden'))
         y_hat = self.output(output)
-        return y_hat
+        return y_hat, F_a_, F_b_
