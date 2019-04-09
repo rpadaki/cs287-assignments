@@ -48,6 +48,9 @@ def get_args():
     parser.add_argument(
         '--pred_suffix', default=''
     )
+    parser.add_argument(
+        '--load_model', default=''
+    )
     # assert args.algo in ['attention', 'ensemble', 'vae']
     args = parser.parse_args()
     args.cuda = torch.cuda.is_available()
@@ -250,6 +253,9 @@ def get_predictions(model):
         for i, pred in enumerate(preds):
             f.write('{},{}\n'.format(str(i), str(pred)))
 
+    with open('test_results{}.text'.format(args.pred_suffix), 'w') as f:
+        f.write('Test Acc: {:1f}%'.format(100. * num_correct / total_num))
+
 
 if __name__ == '__main__':
 
@@ -259,6 +265,9 @@ if __name__ == '__main__':
         attn = True if args.intra_attn == 'true' else False
         model = NamedAttentionModel(
             num_layers=2, hidden_size=200, dropout=0.2, intra_attn=attn)
+        if args.load_model != '':
+            model_file = './trained_models/{}'.format(args.load_model)
+            model.load_state_dict(torch.load(model_file))
         model.cuda()
 
         train(model, num_epochs=args.epochs, lr=args.lr,
@@ -268,13 +277,24 @@ if __name__ == '__main__':
     elif args.algo == 'ensemble':
         # Experiment with different setups - default might be 2 intra, 2 reg attn
         m1 = NamedAttentionModel(
-            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=True)
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
         m2 = NamedAttentionModel(
-            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=True)
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
         m3 = NamedAttentionModel(
-            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=True)
         m4 = NamedAttentionModel(
-            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=False)
+            num_layers=2, hidden_size=200, dropout=0.2, intra_attn=True)
+        
+        if self.load_model != '':    
+             m1_w = './trained_models/attn-smol-0.pt'
+             m2_w = './trained_models/attn-smol-1.pt'
+             m3_w = './trained_models/intra-attn-smol-0.pt'
+             m4_w = './trained_models/intra-attn-smol-1.pt'
+        
+             m1.load_state_dict(torch.load(m1_w))
+             m2.load_state_dict(torch.load(m2_w))
+             m3.load_state_dict(torch.load(m3_w))
+             m4.load_state_dict(torch.load(m4_w))
 
         model = LatentMixtureModel(m1, m2, m3, m4)
         model.cuda()
