@@ -15,7 +15,7 @@ import numpy as np
 
 from models.attention import AttentionModel, NamedAttentionModel
 from models.mixture import LatentMixtureModel, VAE
-from models.setup import train_iter, val_iter, test, TEXT
+from models.setup import train_iter, val_iter, test, TEXT, LABEL
 
 
 def get_args():
@@ -82,6 +82,9 @@ def evaluate(model, batches):
         total_loss = 0
         total_num = 0
         num_correct = 0
+        if args.algo == "vae":
+            identity = ntorch.NamedTensor(torch.eyes(len(LABEL.vocab)), names=("index", "label"))
+            q_sum = ntorch.zeros(len(LABEL.vocab), model.K, names=("label", "model"))
         for i, batch in enumerate(batches):
             log_probs, e  = model.forward(
                 batch.premise, batch.hypothesis)
@@ -90,10 +93,15 @@ def evaluate(model, batches):
             num_correct += get_correct(preds, batch.label)
             total_num += len(batch)
 
-            if args.visualize_freq and i % args.visualize_freq == 0:
+            if args.algo == "vae":
+                q_sum = q_sum + identity.index_select("index", batch.label).dot("batch", e)
+            if args.algo == "attn" and args.visualize_freq and i % args.visualize_freq == 0:
                 fname = './img/' + args.save_img
                 visualize_attn(e[{'batch': 0}], batch.premise[{'batch': 0}], batch.hypothesis[{'batch': 0}], save_name=fname)
 
+        if args.algo == "vae":
+            q_sum = q_sum / q_sum.mean("model")
+            print(q_sum._tensor.cpu().data.values)
         return total_loss / total_num, 100.0 * num_correct / total_num
 
 
@@ -128,7 +136,7 @@ def train(model, num_epochs, lr, weight_decay, grad_clip,
             for i, batch in enumerate(tqdm(train_iter), 1):
                 epoch_start = time.time()
                 opt.zero_grad()
-                log_probs, attn_a, attn_b = model.forward(
+                log_probs, e = model.forward(
                     batch.premise, batch.hypothesis)
                 preds = log_probs.detach().argmax('label')
                 loss = loss_fn(log_probs, batch.label)
