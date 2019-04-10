@@ -183,38 +183,30 @@ For all models, we trained with a corpus of 570k English sentence pairs with rel
  \textsc{Mixture with VAE} & & 85.87 \\
  \bottomrule
 \end{tabular}
-\caption{\label{tab:results} Single Attention Model Performance}
+\caption{\label{tab:results} Attention Model Performance}
 \end{table}
-
-\subsection{Vanilla Seq2Seq}
-For our Vanilla Seq2Seq model without attention, we used a standard encoder-decoder LSTM architecture employing two LSTMs each with $500$ nodes per layer. We used $500$-dimensional embeddings as an initial input, and experimented with between 2 and 4 hidden layers. We also considered reversing the input sentence when training as reported in \cite{43155}, however when attempting to do so evidence from early epochs suggested that our validation perplexity would not significantly improve. We hypothesize that this may be due to the fairly short nature of our sentences. Finally, we used stochastic gradient descent (SGD) with regard to optimizing negative log-likelihood (NLL) during training, and as a heuristic employed a decaying learning rate initiated at $0.7$, halving this after every epoch starting at the $5$th epoch.
-
-\subsection{Seq2Seq with Attention}
-Given the preliminary results of our Vanilla Seq2Seq model, we sought to characterize the addition of attention. Using the same overall encoder-decoder model architecture, we also employed an initial hidden layer size of $500$ over $4$ hidden layers per encoder and decoder, but found performance boosts widening our net to $650$ hidden nodes per layer. Our encoder was practically unchanged, but our decoder implemented attention utilizing a concatenation of both previous context and decoder output to inform our encoder's output. We employ dropout of $0.2$ on the hidden layers of both the encoder and decoder LSTMs to combat overfitting. Finally we also experiment with weight-tying as presented in \cite{DBLP:journals/corr/PressW16} on grounds of performance boosting in Homework 2. For Kaggle submission, we employed beam search with beam size $100$, achieving a score of $0.338$ and beating the set baseline at $0.238$.
 
 \subsection{Attention Visualization}
 
-With the latter implementation of Seq2Seq with attention, we were able to capture an attention distribution for various sentences, as seen in Figure 1. 
+Following the decomposable attention model implementation, we also captured the attention weights and generated visualizations for various sentence examples (Figure 1). 
 
 \begin{figure}[htp]
 \centering
-\includegraphics[width=.3\textwidth]{hw3/writeup/img/attn_vis_1.png}
-\includegraphics[width=.3\textwidth]{hw3/writeup/img/attn_vis_2.png}
-\includegraphics[width=.3\textwidth]{hw3/writeup/img/attn_vis_3.png}
+\includegraphics[width=.3\textwidth]{hw4/img/218-attn-smol-1.png}
+\includegraphics[width=.3\textwidth]{hw4/img/280-attn-smol-1.png}
+\includegraphics[width=.3\textwidth]{hw4/img/281-attn-smol-1.png}
 
 \medskip
 
-\includegraphics[width=.3\textwidth]{hw3/writeup/img/attn_vis_4.png}
-\includegraphics[width=.3\textwidth]{hw3/writeup/img/attn_vis_5.png}
-\includegraphics[width=.3\textwidth]{hw3/writeup/img/attn_vis_6.png}
+\includegraphics[width=.3\textwidth]{hw4/img/282-attn-smol-1.png}
+\includegraphics[width=.3\textwidth]{hw4/img/283-attn-smol-1.png}
+\includegraphics[width=.3\textwidth]{hw4/img/284-attn-smol-1.png}
 
-\caption{Example sentence attention distributions. Lighter squares denote higher weights. The x-axis and y-axis of each plot correspond to words in the source sentence (German) and the generated translation (English) respectively. Along the y-axis for each plot, words in the parentheses are the true word, next to the model-predicted words.}
+\caption{Example premise-hypothesis attention. Lighter squares denote higher attention weights. The x-axis and y-axis of each plot correspond to words in the hypothesis and the premise respectively.}
 \label{pics:blablabla}
 \end{figure}
 
-Alignment regarding our source sentence and generated translations can then be characterized between individual words. Each row of a matrix indicates the weights associated with an annotation, and we are able to determine which positions in the source sentence were considered most important while generating the target word.
-
-We note that the lighter diagonal paths across all our sample sentences suggests that our model pays attention to words in the source sentence in chronological order while decoding the target sentence, but there do seem to be a number of non-monotonic alignments. This seems reasonable when comparing two relatively similar languages such as English and German, which are both West Germanic languages. Accordingly, we suspect that these translations may empirically serve as a lower bound or baseline between neural machine translation tasks.
+Alignment regarding between the two sentences can then be characterized between individual words. Each row of a matrix indicates the weights associated with an annotation, and we are able to determine which positions in the source sentence were considered most important while generating the target word. Anecdotally, we seem some interesting attention alignments, such as ``water'' being related to ``pool'' and ``garden'' and ``tool'' being related to ``outside''.
 
 
 
@@ -273,7 +265,9 @@ We note that the lighter diagonal paths across all our sample sentences suggests
 
 
 \section{Conclusion}
-We build, tuned, and trained different models to perform neural machine translation, with observed success compared to the baseline. Comparing the standard Seq2Seq model and a variant incorporating attention, we note note the improved performance in perplexity, consistent with the previous literature. Local attention thus empirically proves to be a source of boosted performance, observed with very few distinct modifications to the overall architecture of a standard encoder-decoder network. Although not implemented in our assignment, several state of the art methods employing more drastic changes to model architecture but relying on attention serve as promising future avenues of investigation.
+We built, tuned, and trained different models to perform neural machine inference, with observed success compared to the baseline. Comparing the vanilla decomposed attention model and an intra-attention or self-attention model, we see marginal improvement, corroborating the original paper. We also observe higher performance with the mixture model training with VAEs.
+
+and a variant incorporating attention, we note the improved performance in perplexity, consistent with the previous literature. Local attention thus empirically proves to be a source of boosted performance, observed with very few distinct modifications to the overall architecture of a standard encoder-decoder network. Although not implemented in our assignment, several state of the art methods employing more drastic changes to model architecture but relying on attention serve as promising future avenues of investigation.
 
 % We built and trained different models to classify the SST data set, with overall success compared to the baseline. Surprisingly, the most successful model was Naive Bayes, which strongly assumes that features are independent of each other within a class. This may indicate that, in this data set, features more strongly correlated with a class actually tend to occur more independently of each other.
 
@@ -283,7 +277,7 @@ We build, tuned, and trained different models to perform neural machine translat
 % The biggest difficulty we had throughout this process was acquainting ourselves with NamedTensor and sorting out bugs in our code resulting from the new package.  As a whole, we found the use of named dimensions to be very useful, but had to spend a bit more time wrangling and managing our data.\\
 
 
-Our code can be found at \url{https://github.com/rpadaki/cs287assignments/tree/master/hw3}.
+Our code and more attention visualization examples can be found at \url{https://github.com/rpadaki/cs287assignments/tree/master/hw4}. Meanwhile, the answers to the ethics component of the assignment can be found at \url{https://github.com/rpadaki/cs287assignments/tree/master/hw4/ethics/writeup.pdf}.
 
 \bibliographystyle{apalike}
 \bibliography{writeup}
