@@ -114,7 +114,7 @@ def evaluate(model, batches):
 
             if args.visualize_freq and i % args.visualize_freq == 0:
                 fname = './img/' + args.save_img
-                visualize_attn(attn_a, attn_b, fname)
+                visualize_attn_1(model, batch.premise[{'batch': 0}], batch.hypothesis[{'batch': 0}], save_name=fname)
 
         return total_loss / total_num, 100.0 * num_correct / total_num
 
@@ -267,11 +267,11 @@ def train_vae(model, num_epochs, lr, weight_decay, grad_clip,
 
 def visualize_attn_1(attn_model, sent_1, sent_2, labels=None, save_name=None):
     preds, attn_1, attn_2 = attn_model.forward(sent_1, sent_2, labels)
-    sent_1_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_1.cpu().data.numpy()))
-    sent_2_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_2.cpu().data.numpy()))
+    sent_1_words = np.array(list(map(lambda x: TEXT.vocab.itos[x], sent_1._tensor.cpu().data.numpy())))
+    sent_2_words = np.array(list(map(lambda x: TEXT.vocab.itos[x], sent_2._tensor.cpu().data.numpy())))
 
     fig, ax = plt.subplots()
-    ax.imshow(attn_1, cmap='gray')
+    ax.imshow(attn_1._tensor.cpu().data.numpy(), cmap='gray')
     plt.xticks(range(len(sent_1_words)), sent_1_words, rotation='vertical')
     plt.yticks(range(len(sent_2_words)), sent_2_words)
 
@@ -283,11 +283,11 @@ def visualize_attn_1(attn_model, sent_1, sent_2, labels=None, save_name=None):
 
 def visualize_attn_2(attn_model, sent_1, sent_2, labels=None, save_name=None):
     preds, attn_1, attn_2 = attn_model.forward(sent_1, sent_2, labels)
-    sent_1_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_1.cpu().data.numpy()))
-    sent_2_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_2.cpu().data.numpy()))
+    sent_1_words = np.array(list(map(lambda x: TEXT.vocab.itos[x], sent_1._tensor.cpu().data.numpy())))
+    sent_2_words = np.array(list(map(lambda x: TEXT.vocab.itos[x], sent_2._tensor.cpu().data.numpy())))
 
     fig, ax = plt.subplots()
-    ax.imshow(attn_2, cmap='gray')
+    ax.imshow(attn_2._tensor.cpu().data.numpy(), cmap='gray')
     plt.xticks(range(len(sent_2_words)), sent_2_words, rotation='vertical')
     plt.yticks(range(len(sent_1_words)), sent_1_words)
 
@@ -311,7 +311,7 @@ def get_predictions(model):
         model.eval()
         for batch in test_iter:
             batch_preds = model(
-                batch.premise, batch.hypothesis).argmax('label')
+                batch.premise, batch.hypothesis)[0].argmax('label')
             preds += batch_preds.tolist()
             num_correct += get_correct(batch_preds, batch.label)
             total_num += len(batch_preds)
