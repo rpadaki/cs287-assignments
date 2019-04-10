@@ -246,9 +246,10 @@ def train_vae(model, num_epochs, lr, weight_decay, grad_clip,
 def visualize_attn(attn, sent_1, sent_2, labels=None, save_name=None):
     sent_1_words = np.array(list(map(lambda x: TEXT.vocab.itos[x], sent_1._tensor.cpu().data.numpy())))
     sent_2_words = np.array(list(map(lambda x: TEXT.vocab.itos[x], sent_2._tensor.cpu().data.numpy())))
-
+    print(sent_1_words)
+    print(sent_2_words)j
     fig, ax = plt.subplots()
-    ax.imshow(attn._tensor.cpu().data.numpy(), cmap='gray')
+    ax.imshow(attn._tensor.cpu().data.numpy(), cmap='blue')
     plt.xticks(range(len(sent_1_words)), sent_1_words, rotation='vertical')
     plt.yticks(range(len(sent_2_words)), sent_2_words)
 
