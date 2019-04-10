@@ -75,28 +75,6 @@ def get_correct(preds, labels):
     return (labels == preds).sum().item()
 
 
-# Code from last pset and modified
-def visualize_attn(self, src_sample, pred_sample,
-                   trg_label=None, save_name=None):
-    # attn = decoder_attn_sample.cpu().data.numpy()
-    src_words = np.array(list(map(lambda x: TEXT.vocab.itos[x],
-                                  src_sample.cpu().data.numpy())))
-    pred_words = np.array(list(map(lambda x: TEXT.vocab.itos[x],
-                                   pred_sample.cpu().data.numpy())))
-
-    # Visualizations
-    fig, ax = plt.subplots()
-    ax.imshow(attn, cmap='blue')
-    plt.xticks(range(len(src_words)), src_words, rotation='vertical')
-    plt.yticks(range(len(pred_words)), pred_words)
-
-    ax.xaxis.tick_top()
-
-    if not save_name is None:
-        plt.savefig(save_name)
-    # plt.show()
-
-
 def evaluate(model, batches):
     model.eval()
     with torch.no_grad():
@@ -265,13 +243,13 @@ def train_vae(model, num_epochs, lr, weight_decay, grad_clip,
     print('Val Loss: {:.4f} | Val Acc: {:.4f} | Time: {:.4f}'.format(
         val_loss, val_acc, time.time() - start_time))
 
-def visualize_attn_1(attn_model, sent_1, sent_2, labels=None, save_name=None):
-    preds, attn_1, attn_2 = attn_model.forward(sent_1, sent_2, labels)
+def visualize_attn(attn_model, sent_1, sent_2, labels=None, save_name=None):
+    preds, attn = attn_model.forward(sent_1, sent_2, labels)
     sent_1_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_1.cpu().data.numpy()))
     sent_2_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_2.cpu().data.numpy()))
 
     fig, ax = plt.subplots()
-    ax.imshow(attn_1, cmap='gray')
+    ax.imshow(attn.cpu().data.numpy(), cmap='gray')
     plt.xticks(range(len(sent_1_words)), sent_1_words, rotation='vertical')
     plt.yticks(range(len(sent_2_words)), sent_2_words)
 
@@ -279,24 +257,8 @@ def visualize_attn_1(attn_model, sent_1, sent_2, labels=None, save_name=None):
 
     if not save_name is None:
         plt.savefig(save_name)
-    plt.show()
-
-def visualize_attn_2(attn_model, sent_1, sent_2, labels=None, save_name=None):
-    preds, attn_1, attn_2 = attn_model.forward(sent_1, sent_2, labels)
-    sent_1_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_1.cpu().data.numpy()))
-    sent_2_words = np.array(list(lambda x: TEXT.vocab.itos[x], sent_2.cpu().data.numpy()))
-
-    fig, ax = plt.subplots()
-    ax.imshow(attn_2, cmap='gray')
-    plt.xticks(range(len(sent_2_words)), sent_2_words, rotation='vertical')
-    plt.yticks(range(len(sent_1_words)), sent_1_words)
-
-    ax.xaxis.tick_top()
-
-    if not save_name is None:
-        plt.savefig(save_name)
-    plt.show()
-
+    else:
+        plt.show()
 
 
 def get_predictions(model):
