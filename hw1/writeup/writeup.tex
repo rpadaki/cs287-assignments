@@ -15,7 +15,7 @@ Towards this end, we benefit from two developments: word embeddings and convolut
 
 CNNs, although originally invented for computer vision \citep{Lecun98gradient-basedlearning}, have enjoyed success in NLP as an alternative to traditional methods heavy on linguistic expertise and feature-engineering \citep{collobert2011natural}. Briefly, CNNs can make use of various filters convolved over some initial word representation to learn features locally in a hidden layer. More so, these local features can be passed through as inputs to a neighboring hidden layer, and multiple layers can be chained together to enable more complex feature learning.
 
-For this assignment, we train four main model families: Naive Bayes, Logistic Regression, Continuous Bag-of-Words (CBOW), and CNNs, and compare their accuracies for predicting sentiment on the Stanford SST-2 dataset. Additionally, we make use of static pre-trained word vectors courtesy of fastText trained on Wikipedia. (source). Finally, we explore improvements through tuning parameter and trying out different model architectures. 
+For this assignment, we train four main model families: Naive Bayes, Logistic Regression, Continuous Bag-of-Words (CBOW), and CNNs, and compare their accuracies for predicting sentiment on the Stanford SST-2 dataset. Additionally, we make use of static pre-trained word vectors courtesy of fastText trained on Wikipedia. Finally, we explore improvements through tuning parameter and trying out different model architectures. 
 
 \section{Problem Description}
 From the Stanford sentiment data, we aim to build four classes of classifiers that reliably predict sentiment given an input sentence. Each sentence has been tagged either positive or negative, removing all neutral sentiment. Accordingly, each classifier aims to learn a probability distribution 
@@ -216,7 +216,7 @@ For all models, we trained with $30$ epochs on batches of size $30$ unless other
 
 Although not actually implemented, we note that the single class baseline model does not perform well, with all other models exhibiting notable performance gains. Notably, although we did not expect Naive Bayes to be the top performer given its strong assumptions on input independence, our results show otherwise. 
 
-Given the successful performance of CNNs in \citet{DBLP:journals/corr/Kim14f}, we were interested in experimenting with the parameters further. Our main objective was to try to reproduce the 87.2 \% accuracy reported on the SST-2 dataset. Accordingly, using default training parameters (filter lengths $2, 3, 4$; number of filters $100$ learning rate $2e^{-4}$; batch size $10$; dropout $0.5$), we experimented with stride length, filter lengths, hidden layer depth, and an alternate pre-trained embedding (GloVe). However, our results (summarized in Table 2) do not show clear improvements.
+Given the successful performance of CNNs in \citet{DBLP:journals/corr/Kim14f}, we were interested in experimenting with the parameters and extending the models further. Our main objective was to try to reproduce the 87.2 \% accuracy reported on the SST-2 dataset. Accordingly, using default training parameters (filter lengths $2, 3, 4$; number of filters $100$ learning rate $2e^{-4}$; batch size $10$; dropout $0.5$), we experimented with stride length, filter lengths, hidden layer depth, and an alternate pre-trained embedding (GloVe). However, our results (summarized in Table 2) do not show clear improvements.
 
 \begin{table}[h]
 \centering
