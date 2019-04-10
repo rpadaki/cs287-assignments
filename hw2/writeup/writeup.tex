@@ -1,0 +1,302 @@
+
+\documentclass[11pt]{article}
+\usepackage{hyperref}
+\usepackage{common}
+\title{HW2: Language Modeling}
+\author{Roshan Padaki \\ rpadaki@college.harvard.edu \and Michael Zhang \\ michael\_zhang@college.harvard.edu }
+\begin{document}
+
+\maketitle{}
+\section{Introduction}
+
+Language modeling is a fundamental problem in natural language processing, with applications including widely-depended on tasks such as speech recognition and machine translation. Given a context of previous words, language modeling aims to estimate the distribution of possible next words. This is ostensibly a classification problem, but in theory the next predicted word may actually depend on any number of arbitrarily distant previous words. Accordingly, predicting the $n+1$th word given a set of $n$ words can be a challenging task with no obvious or surefire ways to capture important dependencies in a computationally-controlled manner.
+
+In this assignment we present and compare three different approaches. The first involves building on count-based language models to deal with a fixed number of words in the context leading up to a prediction target word. We employ a trigram model with linear interpolation as a baseline, utilizing various smoothing methods to deal with sparsity challenges in data as context size increases. We then implement a Neural Network Language Model (NNLM), taking advantage of generalized feature vectors to deal with sparsity and also incorporate information regarding the positional information of word. Finally, we implement a Long Short-Term Memory network, or LSTM, a recurrent neural network (RNN) architecture with several modifications in the form of gates that allows us to better learn arbitrarily long past word dependencies.
+
+We supplement our experiments with additional results from modifying our baseline algorithms.
+
+\section{Problem Description}
+We aim to perform language modeling using sentences available on the \href{http://aclweb.org/anthology/J93-2004)}{Penn Treebank}. Language modeling can be characterized as an instance of multiclass classification, where each word in our predefined vocabulary corresponds to a class, and the inputs are the words in the context preceding a target word that we wish to predict. Accordingly, given vocabulary $\mathcal{V}$, we wish to estimate $p(w_t \mid w_1, w_2, \ldots w_{t-1})$ where $w_i \in \mathcal{V}$ for $i = 1, 2, \ldots, t$ is a word.
+
+In practice, we consider only $n$ preceding words, assuming that
+\[
+p(w_t \mid w_{1:t-1} \approx p(w_t \mid w_{t - n + 1: t-1})
+\]
+Because our model will often not be limited to a single ``correct'' word, we report \textit{perplexity}, or
+\[
+\text{perp} = \exp\left\{-\frac{1}{n}\sum_{i=1}^n \log p(w_t \mid w_{1: t-1})\right\}
+\]
+deviating from the classification paradigm of reporting prediction accuracy as a measure to evaluate performance. Essentially the exponentiated average negative log-likelihood, perplexity reflects the average size of a uniform distribution that would correspond to the same probability of target words. We accordingly wish to minimize perplexity through training and evaluation.
+
+
+% \begin{center}
+%     \begin{tabular}{@{}lll@{}}
+%         % \toprule
+%         &\multicolumn{2}{c}{} \\
+%         & Variable & Definition\\
+%         \midrule
+%         & $\sigma$ & Activation function (sigmoid, tanh, ReLU) \\
+%         & $\boldb$ & Bias term(s) \\
+%         & $\bolde$ & Embedding vector \\
+%         & $\boldx$ & Word vector \\
+%         & $\boldw, p, c$ & Convolutional terms: filter, dropout prob., feature\\
+%         & $\mcP, \mcN$ & Training data: positive sentences, negative sentences \\
+%         \bottomrule
+%     \end{tabular}
+% \end{center}
+
+
+\section{Model and Algorithms}
+
+\subsection{Count-based Trigrams with Linear-Interpolation}
+A naive model that is surprisingly effective is a simple count-based one; the we record the frequencies of different $k$-grams, an normalize to get the conditional probabilities of $x_t$ given $x_{1:t-1}$.
+
+However, this model's primary weakness is the sparsity of $k$-grams; for the large set of $k$-grams which do not show up in the training set, a smoothing mechanism is needed to generate meaningful results.
+
+To that end, we consider linear combinations of these $k$-gram models for $k$ ranging from $1$ to $n$. For example, in the $n=3$ case, we look at
+\[p(y_t | y_{1:t-1}) =  \alpha_1 p(y_t | y_{t-2}, y_{t-1}) + \alpha_2 p(y_t | y_{t-1}) + (1 - \alpha_1 - \alpha_2) p(y_t).\]
+Given our large vocabulary of $n$-grams in sparse representation, it seemed prudent to tune our hyperparameters $\alpha$ using a Monte Carlo approach rather than through direct optimization. We did so by sampling $\alpha$ uniformly and keeping track of those $\alpha$ giving the best perplexity, or equivalently, cross-entropy loss.
+
+\subsection{Neural Network Language Models}
+To capture shared features between words, we employ an NNLM as described similarly in \cite{Bengio:2003:NPL:944919.944966}. The model uses a single hidden-layer perceptron, with the inputs first transformed through a lookup of the embeddings for a given context's words before being concatenated together. If $v(w_i)$ is the embedding for the $ith$ word in the context leading up to some target word, and we define a window size for our context length $n_w$, then our model's input is given by
+\[
+\boldx = [v(w_1), \ldots, v(w_{n_w})]
+\]
+As popularly described with multilayer perceptrons, we train with a Tanh nonlinearity, and accordingly generate output
+\[
+\hat{y} = \text{softmax}\left(\text{Tanh}(\boldx W_1 + b_1)W_2 + b_2\right)
+\]
+with weights $W_i$ and biases $b_i$ corresponding to their respective layers. We then compare this output as a one-hot encoded representation against the true word, training with cross-entropy loss.
+
+\subsection{LSTM Language Models}
+Our final model is a long short-term memory network, or LSTM, which takes advantage of a recurrent architecture to capture sequential inputs. Being able to capture previous inputs arbitrarily far away to predict a target output belonging to a sequence seems especially useful for tasks such as language modeling, where word dependencies may span long distances. Additionally, while LSTMs are based on another class of models known as recurrent neural networks (RNNs), they solve the exploding or vanishing gradient problem associated with trying to train with long-term dependencies.
+
+As described in \cite{DBLP:journals/corr/ZarembaSV14}, RNNs can be modeled as a set of hidden states 
+\[
+h_t^l = f(T_{n,n}h_t^{l-1} + T_{n,n}h_{t-1}^l), 
+\]
+where $f$ is an activation function such as Sigmoid or Tanh, $h_t^l \in \mathbb{R}^n$ being a hidden state in layer $l$ in timestep $t$, and $T_{n,m} : \mathbb{R}^n \mapsto \mathbb{R}^m$ being some affine linear transform. Conveniently, their dynamics can be described sequentially, where the outputs of previous state feed into the inputs of the next state in an arbritrarily long chain to capture sequential inputs for the overall model. However, these serial connections also lead to potentially difficult training. Accordingly, the primary of innovation of LSTMs involves training using gates to control which information passes to future cells. Along with the memory cells $c_t^l \in \mathbb{R}^n$, these gates allow the LSTM to overwrite, retrieve and retain the contents for future time steps. Accordingly, we have
+\[
+\begin{pmatrix}
+i \\ f \\ o \\ g
+\end{pmatrix}
+= 
+\begin{pmatrix}
+\text{sigm} \\
+\text{sigm} \\
+\text{sigm} \\
+\text{tanh} \\
+\end{pmatrix} 
+T_{2n, 4n}
+\begin{pmatrix}
+h_t^{1-1} \\
+h_{t-1}^l
+\end{pmatrix}
+\]
+\[
+c_t^l = f \odot c_{t-1}^l + i \odot g
+\]
+\[
+h_t^l = o \odot \text{tanh}(c_t^l)
+\]
+where $\odot$ denotes element-wise multiplication and $i, f, o, g$ denote our gating functions.
+
+\subsection{Extensions}
+In addition to the three classes of models asked to be implemented, we also considered model extensions. Inspired by the multi-channel embeddings with CNNs implemented in \cite{DBLP:journals/corr/Kim14f}, we tried building a language model with two embeddings layers. Following the same NNLM architecture as previously described, our modification employed one embedding layer to be updated while training, and another that remains static. The word indexes are mapped to their respective words independently before concatenating together to produce a 600 dimension output tensor.
+
+We additionally experimented with implementing a stacked or multi-layer LSTM with differing hidden layer sizes, which were shown in \cite{DBLP:journals/corr/abs-1303-5778} to beat baselines in speech recognition tasks. Our architecture remained the same for the most part, with the primary difference being the inclusion of three LSTM cells each with a single layer with varying numbers of hidden nodes. Finally, as noted in \cite{DBLP:journals/corr/PressW16}, tying the weights of the input and output embeddings can lead to significant reduction in perplexity, and we accordingly implemented weight-tying as a part of our LSTMs as well.
+
+
+% Here you specify the model itself. This section should formally
+% describe the model used to solve the task proposed in the previous
+% section. This section should try to avoid introducing new vocabulary
+% or notation, when possible use the notation from the previous section.
+% Feel free to use the notation from class, but try to make the note
+% understandable as a standalone piece of text.
+
+% This section is also a great place to include other material that
+% describes the underlying structure and choices of your model, for
+% instance here are some example tables and algorithms from full
+% research papers:
+
+% \begin{itemize}
+% \item diagrams of your model,
+
+%   \begin{center}
+%     \includegraphics[width=0.4\textwidth]{network}
+%   \end{center}
+% \item feature tables,
+
+%   \begin{center}
+%     \begin{tabular}{@{}lll@{}}
+%       \toprule
+%       &\multicolumn{2}{c}{Mention Features  } \\
+%       & Feature & Value Set\\
+%       \midrule
+%       & Mention Head & $\mcV$ \\
+%       & Mention First Word & $\mcV$ \\
+%       & Mention Last Word & $\mcV$ \\
+%       & Word Preceding Mention & $\mcV$ \\
+%       & Word Following Mention & $\mcV$\\
+%       & \# Words in Mention & $\{1, 2, \ldots \}$ \\
+%       & Mention Type & $\mathcal{T}$ \\
+%       \bottomrule
+%     \end{tabular}
+%   \end{center}
+
+% \item pseudo-code,
+
+%   \begin{algorithmic}[1]
+%     \Procedure{Linearize}{$x_1\ldots x_N$, $K$, $g$}
+%     \State{$B_0 \gets \langle (\langle \rangle, \{1, \ldots, N\}, 0, \boldh_0, \mathbf{0})  \rangle$}
+%     \For{$m = 0, \ldots, M-1$ }
+%     \For{$k = 1, \ldots, |B_m|$}
+%     \For{$i \in \mcR$}
+%     \State{$(y, \mcR, s, \boldh) \gets \mathrm{copy}(B_m^{(k)})$}
+%     \For{word $w$ in phrase $x_i$}
+%     \State{$y \gets y $ append $w$ }
+%     \State{$s \gets s + \log q(w, \boldh) $ }
+%     \State{$\boldh \gets \delta(w, \boldh)$}
+%     \EndFor{}
+%     \State{$B_{m+|w_i|} \gets B_{m+|w_i|} + (y, \mcR - i, s,   \boldh)$}
+%     \State{keep top-$K$ of $B_{m+|w_i|}$ by $f(x, y) + g(\mcR)$}
+%     \EndFor{}
+%     \EndFor{}
+%     \EndFor{}
+%     \State{\Return{$B_{M}^{(k)}$}}
+%     \EndProcedure{}
+%   \end{algorithmic}
+
+% \end{itemize}
+
+
+\section{Experiments}
+For all models, we trained with the \href{http://aclweb.org/anthology/J93-2004)}{Penn Treebank} dataset on a minimum of $5$ epochs on batches of size $10$. We say minimum because while we ran experiments with $10$ epochs, overfitting on validation sets was observed for some models starting at epoch $5$ or $6$, and in these cases we employed early stopping. Due to the comparative success of the Stanford GloVe embeddings seen on the last assignment, we also used two GloVe embedding formulations, building our vocabulary with a smaller $6$ billion token pre-trained word vector to beat a basic model baseline of $150$ PPL, and a larger $840$ billion version. Hyperparameter tuning was done uniquely to the class of model. For the NNLMs and LSTMs, this was mainly on the order of changing the number of hidden nodes, although we did experiment with deeper architectures such as going from a single-layer base-line LSTM to 2 and 3-layer architectures. Finally, for comparison purposes, we employ perplexity, hoping to beat a baseline of $150$ ppl. Our basic results are listed in Table 1.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llr}
+ \toprule
+ Basic Model &  & Perplexity \\
+ \midrule
+ \textsc{Trigrams} & & 219.1\\
+ \textsc{NNLM} & & 152.3 \\
+ \textsc{LSTM} & & 125.4  \\
+ \bottomrule
+\end{tabular}
+\caption{\label{tab:results} Basic model performance}
+\end{table}
+
+At least in their most comparable implementations, we noted that LSTMs squarely beat their non-recurrent counterparts, which makes sense in the language modeling setting given the sequential nature of our inputs and the task of learning arbitrarily distant word dependencies. Considering LSTMs alone, we did observe a notable performance boost with using the larger GloVe embeddings (Table 2), and accordingly were curious to see if modifications to the embedding layer of our NNLM as noted in Section 3.4 could lead to sizeable improvement. Although the original inspiration was done with a CNN under the premise of sentence sentiment classification, the language-analogy of using RGB channels in image recognition to provide more information seemed promising. Training with a single 100 dimension hidden layer for $5$ epochs lead to a performance boost up to $143.0$ perplexity, but this still did not beat our baseline LSTM.
+
+Following these results, we focused on experimenting with the LSTM model. Our results are shown in Table 2.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{llllllr}
+ \toprule
+& Depth & Layer Size & Embedding & Weights Tied & Perplexity \\
+\midrule
+ \textsc{(Baseline)} & 1 & 1000 & 6b & No & 125.4\\
+  \textsc{} & 2 & 1000 & 6b & No & 125.1\\
+  \textsc{} & 2 & 2000 & 6b & No & 122.1\\
+  \textsc{} & 2 & 1000 & 6b & Yes & 110.6\\
+  \textsc{(Stacked)} & 3 & 1000, 500, 500 & 6b & Yes & 142.7\\
+  \textsc{} & 2 & 1000 & 840b & Yes & \bf{104.1}\\
+  \textsc{} & 3 & 1000 & 840b & Yes & 104.2\\
+ \bottomrule
+\end{tabular}
+\caption{\label{tab:results} Modified LSTM model performance. \textbf{Depth}: Number of hidden layers. \textbf{Layer Size}: Number of nodes per layer. \textbf{Embedding}: GloVe vector distribution. \textbf{Weight Tied}: Input and output embedding match.}
+\end{table}
+
+\subsection{Modeling with memory}
+As evidenced by their perplexities, our LSTMs perform better than their non-recurrent counterparts. As noted earlier, the advantage of being able to look at sequential inputs, as opposed to a single n-gram feature construction, lends language modeling to be a natural application for models such as LSTMs. Furthermore, even with an ostensibly more complicated architecture, training with LSTMs was not obviously more difficult or time-intensive, courtesy of the gated and controlled flow between memory cells that help LSTMs avoid some of the ill-effects of the vanishing gradient problem seen in other recurrent neural networks.
+
+\subsection{To stack or not?}
+Our ``deeper'' models did not necessarily exhibit meaningful performance boosts. Although in concept because LSTMs operate on sequential data, more layers would lead to higher levels of abstraction and understanding our context at different time scales, in practice this effect was minimal. Although more experiments are required to better characterize the behavior of our stacked model, with it we observed among the highest differences between train and validation perplexity. This suggests that these higher representations may be overfitting on our training corpuses, thus not lending the flexibility to suggest new words required in generalization to unseen data. 
+
+\subsection{If the GloVe fits}
+We experimented with the GloVe embeddings, comparing a baseline Wikipedia and Gigaword pre-trained distribution (6b) against a Common Crawl distribution (840b). Both seem to be fairly representative of the text we would have encountered in the training and validation corpuses, and so the performance boost using the 840b tables may have been the result of increased vocabulary.
+
+\subsection{Tying it all together}
+As part of one of our extensions, we investigated the effect of weight-tying as exhibited by \cite{DBLP:journals/corr/PressW16}. Sharing the weight matrix between input embedding and output softmax layers was posited to combat overfitting, and we can interpret weight-tying as a form of regularization. Our results indeed showed a $10$ point drop in perplexity comparing similar models with tied and untied weights, and for all subsequent models we trained with tied weights.
+
+\subsection{Count-based Trigrams with Linear-Interpolation}
+Following our Monte Carlo approach, we found a value for $\alpha$ in the case of trigrams as $\alpha = (0.31, 048, 0.21)$.
+This yielded a perplexity of $219.1$ on our validation set.
+
+
+% For all models, we trained with $30$ epochs on batches of size $30$ unless otherwise noted. In addition to the Stanford SST-2 dataset supplied by torchtext, we implement all models as "named" versions using NamedTensor. As noted on Kaggle, we compare our submissions both with each other and a single class baseline, which achieves a public dataset testing accuracy of 52.38\%. Our basic results  are listed in Table 1.
+
+% \begin{table}[h]
+% \centering
+% \begin{tabular}{llr}
+%  \toprule
+%  Model &  & Accuracy $(\%)$ \\
+%  \midrule
+%  \textsc{Single Class} & & 52.38\\
+%  \textsc{Naive Bayes} & & 82.15 \\
+%  \textsc{Logistic Regression} & & 78.41  \\
+%  \textsc{CBOW} & &77.05 \\
+%  \textsc{CNN} & & 79.49\\
+%  \bottomrule
+% \end{tabular}
+% \caption{\label{tab:results} Basic model performance}
+% \end{table}
+
+% Although not actually implemented, we note that the single class baseline model does not perform well, with all other models exhibiting notable performance gains. Notably, although we did not expect Naive Bayes to be the top performer given its strong assumptions on input independence, our results show otherwise. 
+
+% Given the successful performance of CNNs in \citet{DBLP:journals/corr/Kim14f}, we were interested in experimenting with the parameters and extending the models further. Our main objective was to try to reproduce the 87.2 \% accuracy reported on the SST-2 dataset. Accordingly, using default training parameters (filter lengths $2, 3, 4$; number of filters $100$ learning rate $2e^{-4}$; batch size $10$; dropout $0.5$), we experimented with stride length, filter lengths, hidden layer depth, and an alternate pre-trained embedding (GloVe). However, our results (summarized in Table 2) do not show clear improvements.
+
+% \begin{table}[h]
+% \centering
+% \begin{tabular}{llr}
+%  \toprule
+% Model Modification &  & Accuracy $(\%)$ \\
+%  \midrule
+%  \textsc{Baseline} & & 79.49\\
+%  \textsc{Stride Length} & & 80.07 \\
+%  \textsc{Filter Lengths} & & 78.41  \\
+%  \textsc{Embedding} & &81.49 \\
+%  \bottomrule
+% \end{tabular}
+% \caption{\label{tab:results} Modified CNN model performance. \textbf{Stride Length}: Modification to the stride length from default length $1$, with optimal performance at length $2$. \textbf{Filter Lengths}: Adding a filter with size $2$ to the default filters of size $3, 4, 5$. \textbf{Embedding}: Building the vocab representation with Stanford's GloVe embedding}.
+% \end{table}
+
+
+% Finally we end with the experimental section. Each assignment will make clear the main experiments and baselines that you should run. For these experiments you should present a main results table. Here we give a sample Table~\ref{tab:results}. In addition to these results you should describe in words what the table shows and the relative performance of the models.
+
+% Besides the main results we will also ask you to present other results
+% comparing particular aspects of the models. For instance, for word
+% embedding experiments, we may ask you to show a chart of the projected
+% word vectors. This experiment will lead to something like
+% Figure~\ref{fig:clusters}. This should also be described within the
+% body of the text itself.
+
+% \begin{figure}
+%   \centering
+%   \includegraphics[width=6cm]{cluster_viz}
+%   \caption{\label{fig:clusters} Sample qualitative chart.}
+% \end{figure}
+
+
+\section{Conclusion}
+
+% We built and trained different models to classify the SST data set, with overall success compared to the baseline. Surprisingly, the most successful model was Naive Bayes, which strongly assumes that features are independent of each other within a class. This may indicate that, in this data set, features more strongly correlated with a class actually tend to occur more independently of each other.
+
+% Nevertheless, all of our models performed quite well. Although we were not able to replicate the CNN performance exhibited in \citet{DBLP:journals/corr/Kim14f}, we reached similar conclusions that with little hyperparameter tuning, a simple CNN with one layer of convolution and pre-trained embeddings worked well. In fact, the rather close performance of all model classes dependent on the our embedding, and the performance boost in CNNs seen when switching from the default wiki-based vectors to GloVe, further corroborate the idea that advances in NLP can be associated with unsupervised pretraining of word vectors. 
+
+
+% The biggest difficulty we had throughout this process was acquainting ourselves with NamedTensor and sorting out bugs in our code resulting from the new package.  As a whole, we found the use of named dimensions to be very useful, but had to spend a bit more time wrangling and managing our data.\\
+We trained language models on the Penn Treebank dataset with the goal of making predictions given the context of $n$-previous words. To frame this problem, we sought to minimize cross-entropy, or, equivalently, perplexity, of our predictions. The LSTM model, as per our intuitions, ended up far outclassing the others. The basic $n$-gram model with linear interpolation proves to be both unwieldy for sparse $n$-gram vocabularies as well as computationally infeasible for $n>3$. While the NNLM model was decent, the sequential nature of language and the contexts we were working with lent very well to an LSTM model.
+
+In experimenting with our models, we found that one of the most powerful ways to improve results was to change our word embeddings. We believe that this performance boost can be attributed to increased vocabulary size, rather than to the quality or relevance of the training corpus.
+\\
+
+Our code can be found at \url{https://github.com/rpadaki/cs287assignments/tree/master/hw2}.
+
+\bibliographystyle{apalike}
+\bibliography{writeup}
+
+\end{document}
+
